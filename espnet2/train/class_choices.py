@@ -40,6 +40,7 @@ class ClassChoices:
     ):
         self.name = name
         self.base_type = type_check
+        # 辞書内のキーを全て小文字化するだけ。
         self.classes = {k.lower(): v for k, v in classes.items()}
         if "none" in self.classes or "nil" in self.classes or "null" in self.classes:
             raise ValueError('"none", "nil", and "null" are reserved.')

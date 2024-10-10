@@ -424,6 +424,7 @@ class CommonPreprocessor(AbsPreprocessor):
     def _text_process(
         self, data: Dict[str, Union[str, np.ndarray]]
     ) -> Dict[str, np.ndarray]:
+        
         if self.text_name in data and self.tokenizer is not None:
             text = data[self.text_name]
             if isinstance(text, np.ndarray):
@@ -466,7 +467,8 @@ class CommonPreprocessor(AbsPreprocessor):
                     )
                 )
             data[self.text_name] = np.array(text_ints, dtype=np.int64)
-            if "prompt" in data:
+
+            if "prompt" in data: 
                 whisper_tokenizer = self.token_id_converter.tokenizer.tokenizer
                 if len(data["prompt"].split()) > 1:
                     data["prompt"] = np.array(
@@ -492,7 +494,10 @@ class CommonPreprocessor(AbsPreprocessor):
     def __call__(
         self, uid: str, data: Dict[str, Union[str, np.ndarray]]
     ) -> Dict[str, np.ndarray]:
-
+        # print(data)
+        # {'speech': array([0.00033569, 0.00030518, 0.00036621, ..., 0.00210571, 0.00210571,                                                          
+        # 0.00158691]), 'text': 'HE HOPED THERE WOULD BE STEW FOR DINNER TURNIPS AND CARROTS AND BRUISED POTATOES AND FAT MUTTON PIECES T
+        # O BE LADLED OUT IN THICK PEPPERED FLOUR FATTENED SAUCE'}  
         data = self._speech_process(data)
         data = self._text_process(data)
         return data

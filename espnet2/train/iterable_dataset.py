@@ -1,9 +1,10 @@
 """Iterable dataset module."""
 
 import copy
+import json
 from io import StringIO
 from pathlib import Path
-from typing import Callable, Collection, Dict, Iterator, Optional, Tuple, Union
+from typing import Callable, Collection, Dict, Iterator, List, Optional, Tuple, Union
 
 import kaldiio
 import numpy as np
@@ -85,7 +86,8 @@ class IterableESPnetDataset(IterableDataset):
         ] = None,
         float_dtype: str = "float32",
         int_dtype: str = "long",
-        key_file: Optional[str] = None,
+        key_file: Optional[Union[str, List]] = None,
+        preprocess_prefix: Optional[str] = None,
     ):
         if len(path_name_type_list) == 0:
             raise ValueError(
@@ -98,20 +100,28 @@ class IterableESPnetDataset(IterableDataset):
         self.float_dtype = float_dtype
         self.int_dtype = int_dtype
         self.key_file = key_file
+        self.preprocess_prefix = (
+            preprocess_prefix if preprocess_prefix is not None else ""
+        )
 
         self.debug_info = {}
         non_iterable_list = []
         self.path_name_type_list = []
 
+        # import pdb; pdb.set_trace()
+
         for path, name, _type in path_name_type_list:
+            # 重複チェック
             if name in self.debug_info:
                 raise RuntimeError(f'"{name}" is duplicated for data-key')
+            # 辞書に記録しておく。self.debug_info = {'speech': ('dump/raw/test_clean/wav.scp', 'kaldi_ark')}
             self.debug_info[name] = path, _type
             if _type not in DATA_TYPES:
                 non_iterable_list.append((path, name, _type))
             else:
                 self.path_name_type_list.append((path, name, _type))
 
+        # ここは通らない。
         if len(non_iterable_list) != 0:
             # Some types doesn't support iterable mode
             self.non_iterable_dataset = ESPnetDataset(
@@ -126,7 +136,7 @@ class IterableESPnetDataset(IterableDataset):
         if Path(Path(path_name_type_list[0][0]).parent, "utt2category").exists():
             self.apply_utt2category = True
         else:
-            self.apply_utt2category = False
+            self.apply_utt2category = False # Whisper
 
     def has_name(self, name) -> bool:
         return name in self.debug_info
@@ -144,10 +154,13 @@ class IterableESPnetDataset(IterableDataset):
 
     def __iter__(self) -> Iterator[Tuple[Union[str, int], Dict[str, np.ndarray]]]:
         if self.key_file is not None:
-            uid_iter = (
-                line.rstrip().split(maxsplit=1)[0]
-                for line in open(self.key_file, encoding="utf-8")
-            )
+            if isinstance(self.key_file, str):
+                uid_iter = (
+                    line.rstrip().split(maxsplit=1)[0]
+                    for line in open(self.key_file, encoding="utf-8")
+                )
+            else:
+                uid_iter = self.key_file
         elif len(self.path_name_type_list) != 0:
             uid_iter = (
                 line.rstrip().split(maxsplit=1)[0]
@@ -156,12 +169,19 @@ class IterableESPnetDataset(IterableDataset):
         else:
             uid_iter = iter(self.non_iterable_dataset)
 
+        # uid_iterには発話のidのリストが格納されていそう。
+
+        # ここでファイルを開いている(speechの情報が入っているファイル)
+        # ここのlisは、"ファイルパス"、"変数名"、"型"の順のタプル。そのため、lis[0]でファイルパスを取り出す。
         files = [open(lis[0], encoding="utf-8") for lis in self.path_name_type_list]
+
+        # files = [dump/raw/test_clean/wav.scp, dump/raw/test_clean/text]
 
         worker_info = torch.utils.data.get_worker_info()
 
         linenum = 0
         count = 0
+
         for count, uid in enumerate(uid_iter, 1):
             # If num_workers>=1, split keys
             if worker_info is not None:
@@ -179,6 +199,10 @@ class IterableESPnetDataset(IterableDataset):
                     except StopIteration:
                         raise RuntimeError(f"{uid} is not found in the files")
                     sps = line.rstrip().split(maxsplit=1)
+                    # print(sps)
+                    # ['1089-134686-0000', 'dump/raw/test_clean/data/format.1/data_wav.ark:17']                                                                   
+                    # ['1089-134686-0000', 'HE HOPED THERE WOULD BE STEW FOR DINNER TURNIPS AND CARROTS AND BRUISED POTATOES AND FAT MUTTON PIECES TO BE LADLED OU
+                    # T IN THICK PEPPERED FLOUR FATTENED SAUCE']
                     if len(sps) != 2:
                         raise RuntimeError(
                             f"This line doesn't include a space:"
@@ -187,6 +211,13 @@ class IterableESPnetDataset(IterableDataset):
                     key, value = sps
                     keys.append(key)
                     values.append(value)
+                    # print("key:",key)
+                    # print("value:",value)
+                    # key: 1089-134686-0000                                                                                                                       
+                    # value: dump/raw/test_clean/data/format.1/data_wav.ark:17                                                                                    
+                    # key: 1089-134686-0000                                                                                                                       
+                    # value: HE HOPED THERE WOULD BE STEW FOR DINNER TURNIPS AND CARROTS AND BRUISED POTATOES AND FAT MUTTON PIECES TO BE LADLED OUT IN THICK PEPP
+                    # ERED FLOUR FATTENED SAUCE  
 
                 for k_idx, k in enumerate(keys):
                     if k != keys[0]:
@@ -198,6 +229,12 @@ class IterableESPnetDataset(IterableDataset):
                 # If the key is matched, break the loop
                 if len(keys) == 0 or keys[0] == uid:
                     break
+
+            # print(keys)
+            # print(values)
+            # ['1089-134686-0000', '1089-134686-0000']                                                                                                    
+            # ['dump/raw/test_clean/data/format.1/data_wav.ark:17', 'HE HOPED THERE WOULD BE STEW FOR DINNER TURNIPS AND CARROTS AND BRUISED POTATOES AND 
+            # FAT MUTTON PIECES TO BE LADLED OUT IN THICK PEPPERED FLOUR FATTENED SAUCE']
 
             # 2. Load the entry from each line and create a dict
             data = {}
@@ -212,10 +249,15 @@ class IterableESPnetDataset(IterableDataset):
                 _, from_non_iterable = self.non_iterable_dataset[uid]
                 data.update(from_non_iterable)
 
+            # print(data)
+            # {'speech': array([0.00033569, 0.00030518, 0.00036621, ..., 0.00210571, 0.00210571,                                                          
+            # 0.00158691]), 'text': 'HE HOPED THERE WOULD BE STEW FOR DINNER TURNIPS AND CARROTS AND BRUISED POTATOES AND FAT MUTTON PIECES T
+            # O BE LADLED OUT IN THICK PEPPERED FLOUR FATTENED SAUCE'} 
+
             # 3. [Option] Apply preprocessing
             #   e.g. espnet2.train.preprocessor:CommonPreprocessor
             if self.preprocess is not None:
-                data = self.preprocess(uid, data)
+                data = self.preprocess(self.preprocess_prefix + uid, data)
 
             # 4. Force data-precision
             for name in data:
@@ -223,7 +265,7 @@ class IterableESPnetDataset(IterableDataset):
                 if not isinstance(value, np.ndarray):
                     raise RuntimeError(
                         f"All values must be converted to np.ndarray object "
-                        f'by preprocessing, but "{name}" is still {type(value)}.'
+                        f'by preprocessing, but "{name}:{value}" is still {type(value)}.'
                     )
 
                 # Cast to desired type

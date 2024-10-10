@@ -131,6 +131,7 @@ class OpenAIWhisperDecoder(AbsDecoder, BatchScorerInterface):
                 if use_output_layer is True,
             olens: (batch, )
         """
+        # 入力されたトークンIDの配列をpositional_embeddingしている。
         tgt, memory = ys_in_pad, hs_pad
         tgt = (
             self.decoders.token_embedding(tgt)
@@ -149,6 +150,8 @@ class OpenAIWhisperDecoder(AbsDecoder, BatchScorerInterface):
         x = (
             x @ torch.transpose(self.decoders.token_embedding.weight.to(x.dtype), 0, 1)
         ).float()
+
+        # ここにおけるxがdecoderの出力であり、各単語の生成確率の配列にあたる。
 
         return x, ys_in_lens
 

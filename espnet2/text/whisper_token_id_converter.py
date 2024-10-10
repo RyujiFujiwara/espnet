@@ -89,6 +89,10 @@ class OpenAIWhisperTokenIDConverter:
         )
 
     def tokens2ids(self, tokens: Iterable[str]) -> List[int]:
-        return list(
-            self.tokenizer.sot_sequence_including_notimestamps[1:]
-        ) + self.tokenizer.tokenizer.convert_tokens_to_ids(tokens)
+        return  self.tokenizer.tokenizer.convert_tokens_to_ids(tokens)
+    
+    # ↑ CHANGED.
+    # def tokens2ids(self, tokens: Iterable[str]) -> List[int]:
+    #     return list(
+    #         self.tokenizer.sot_sequence_including_notimestamps[1:]
+    #     ) + self.tokenizer.tokenizer.convert_tokens_to_ids(tokens)

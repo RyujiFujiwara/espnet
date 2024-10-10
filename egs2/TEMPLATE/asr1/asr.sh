@@ -1404,6 +1404,8 @@ if [ ${stage} -le 11 ] && [ ${stop_stage} -ge 11 ] && ! [[ " ${skip_stages} " =~
         _opts+="--use_lang_prompt ${use_lang_prompt} "
         _opts+="--use_nlp_prompt ${use_nlp_prompt} "
     fi
+
+    # 再開用のコマンドの格納
     log "Generate '${asr_exp}/run.sh'. You can resume the process from stage 11 using this script"
     mkdir -p "${asr_exp}"; echo "${run_args} --stage 11 \"\$@\"; exit \$?" > "${asr_exp}/run.sh"; chmod +x "${asr_exp}/run.sh"
 
@@ -1416,6 +1418,8 @@ if [ ${stage} -le 11 ] && [ ${stop_stage} -ge 11 ] && ! [[ " ${skip_stages} " =~
         jobname="${asr_exp}/train.log"
     fi
 
+    # python3 -m espnet2.bin.launch の実行
+    # python3 -m espnet2.bin.asr_train　の実行の両方がここでなされる。
     # shellcheck disable=SC2086
     ${python} -m espnet2.bin.launch \
         --cmd "${cuda_cmd} --name ${jobname}" \
@@ -1478,6 +1482,9 @@ fi
 
 if [ ${stage} -le 12 ] && [ ${stop_stage} -ge 12 ] && ! [[ " ${skip_stages} " =~ [[:space:]]12[[:space:]] ]]; then
     log "Stage 12: Decoding: training_dir=${asr_exp}"
+
+    # For prompt (Answer)
+    _asr_train_dir="${data_feats}/${train_set}"
 
     if ${gpu_inference}; then
         _cmd="${cuda_cmd}"
@@ -1572,12 +1579,15 @@ if [ ${stage} -le 12 ] && [ ${stop_stage} -ge 12 ] && ! [[ " ${skip_stages} " =~
         # 2. Submit decoding jobs
         log "Decoding started... log: '${_logdir}/asr_inference.*.log'"
         rm -f "${_logdir}/*.log"
+
         # shellcheck disable=SC2046,SC2086
         ${_cmd} --gpu "${_ngpu}" JOB=1:"${_nj}" "${_logdir}"/asr_inference.JOB.log \
             ${python} -m espnet2.bin.${asr_task}_inference${inference_bin_tag} \
                 --batch_size ${batch_size} \
                 --ngpu "${_ngpu}" \
+                --data_path_and_name_and_type "${_data}/text,text,text" \
                 --data_path_and_name_and_type "${_data}/${_scp},speech,${_type}" \
+                --allow_variable_data_keys true \
                 --key_file "${_logdir}"/keys.JOB.scp \
                 --asr_train_config "${asr_exp}"/config.yaml \
                 --asr_model_file "${asr_exp}"/"${inference_asr_model}" \
@@ -1624,11 +1634,14 @@ if [ ${stage} -le 13 ] && [ ${stop_stage} -ge 13 ] && ! [[ " ${skip_stages} " =~
         exit 1
     fi
 
+    # 基本はfalse. ex) test_sets = test_clean
     if "${eval_valid_set}"; then
         _dsets="org/${valid_set} ${test_sets}"
     else
         _dsets="${test_sets}"
     fi
+    # ex) _data = ./dump/raw/test_clean 
+    # ex) _dir = ./exp/asr_train_asr_whisper_medium_decselfatten_finetune_raw_en_whisper_multilingual_sp/decode_asr_whisper_noctc_beam10_asr_model_valid.acc.ave/test_clean
     for dset in ${_dsets}; do
         _data="${data_feats}/${dset}"
         _dir="${asr_exp}/${inference_tag}/${dset}"
@@ -1654,6 +1667,8 @@ if [ ${stage} -le 13 ] && [ ${stop_stage} -ge 13 ] && ! [[ " ${skip_stages} " =~
                 log "Error: unsupported token type ${_tok_type}"
             fi
 
+            # ex) _scoredir = ./exp/asr_train_asr_whisper_medium_lora_finetune_raw_en_whisper_multilingual_sp/decode_asr_whisper_noctc_beam10_asr_model_valid.acc.ave/test_clean/score_cer
+            # ex) _scoredir = ./exp/asr_train_asr_whisper_medium_lora_finetune_raw_en_whisper_multilingual_sp/decode_asr_whisper_noctc_beam10_asr_model_valid.acc.ave/test_clean/score_wer
             _scoredir="${_dir}/score_${_type}"
             mkdir -p "${_scoredir}"
 
@@ -1663,6 +1678,7 @@ if [ ${stage} -le 13 ] && [ ${stop_stage} -ge 13 ] && ! [[ " ${skip_stages} " =~
                 suffix=$(echo ${ref_txt} | sed 's/text//')
 
                 # Tokenize text to ${_tok_type} level
+                # ここでref.trnファイルを生成。wer,cer算出における正解データにあたる。
                 paste \
                     <(<"${_data}/${ref_txt}" \
                         ${python} -m espnet2.bin.tokenize_text  \
@@ -1674,6 +1690,7 @@ if [ ${stage} -le 13 ] && [ ${stop_stage} -ge 13 ] && ! [[ " ${skip_stages} " =~
                         >"${_scoredir}/ref${suffix:-${suffix}}.trn"
 
                 # NOTE(kamo): Don't use cleaner for hyp
+                # ここでhyp.trnファイルを生成。wer,cer算出における推論データにあたる。
                 paste \
                     <(<"${_dir}/${ref_txt}"  \
                         ${python} -m espnet2.bin.tokenize_text  \
@@ -1687,6 +1704,7 @@ if [ ${stage} -le 13 ] && [ ${stop_stage} -ge 13 ] && ! [[ " ${skip_stages} " =~
             done
 
             # Note(simpleoier): score across all possible permutations
+            # scliteというツールを使ってwer,cerの算出を行っている。
             if [ ${num_ref} -gt 1 ] && [ -n "${suffix}" ]; then
                 for i in $(seq ${num_ref}); do
                     for j in $(seq ${num_inf}); do

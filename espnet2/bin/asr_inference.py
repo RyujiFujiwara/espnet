@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Stage 12の推論用
 import argparse
 import logging
 import sys
@@ -119,6 +120,7 @@ class Speech2Text:
         threshold_probability: float = 0.99,
         max_seq_len: int = 5,
         max_mask_parallel: int = -1,
+        primtextmask: int = 0,
     ):
 
         task = ASRTask if not enh_s2t_task else EnhS2TTask
@@ -293,7 +295,7 @@ class Speech2Text:
 
             beam_search = None
             beam_search_transducer = None
-        else:
+        else: # Whisper
             beam_search_transducer = None
             hugging_face_model = None
             hugging_face_linear_in = None
@@ -340,7 +342,7 @@ class Speech2Text:
                     sos=asr_model.sos,
                     token_list=token_list,
                 )
-            else:
+            else: # Whisper   (asr_model.eos, asr_model.sos = 50257, 50258)
                 beam_search = BeamSearch(
                     beam_size=beam_size,
                     weights=weights,
@@ -384,9 +386,9 @@ class Speech2Text:
             logging.info(f"Decoding device={device}, dtype={dtype}")
 
         # 5. [Optional] Build Text converter: e.g. bpe-sym -> Text
-        if token_type is None:
+        if token_type is None: #'whisper_multilingual'
             token_type = asr_train_args.token_type
-        if bpemodel is None:
+        if bpemodel is None: 
             bpemodel = asr_train_args.bpemodel
 
         # compatibility for whisper tokenizer
@@ -404,7 +406,7 @@ class Speech2Text:
                 )
             else:
                 tokenizer = None
-        elif "whisper" in token_type:
+        elif "whisper" in token_type: # Whisper
             tokenizer = build_tokenizer(
                 token_type=token_type,
                 bpemodel=bpemodel,
@@ -419,10 +421,10 @@ class Speech2Text:
             converter = HuggingFaceTokenIDConverter(model_name_or_path=bpemodel)
         elif bpemodel not in ["whisper_en", "whisper_multilingual"]:
             converter = TokenIDConverter(token_list=token_list)
-        else:
+        else: # Whisper
             if "speaker_change_symbol" in preprocessor_conf:
                 sot_asr = True
-            else:
+            else: # Whisper
                 sot_asr = False
             converter = OpenAIWhisperTokenIDConverter(
                 model_type=bpemodel,
@@ -431,9 +433,18 @@ class Speech2Text:
                 task=whisper_task or "transcribe",
                 sot=sot_asr,
             )
+
             beam_search.set_hyp_primer(
                 list(converter.tokenizer.sot_sequence_including_notimestamps)
             )
+            
+            # ↓↓　CHANGED.
+
+            # beam_search.set_hyp_primer(
+            #     list(converter.tokenizer.sot_sequence_only)
+            # )
+
+            # whisperは以下のif分岐のどれにも当てはまらない。
             if lang_prompt_token is not None:
                 a1 = converter.tokenizer.tokenizer.convert_ids_to_tokens(
                     converter.tokenizer.sot_sequence_including_notimestamps
@@ -478,9 +489,13 @@ class Speech2Text:
         self.enh_s2t_task = enh_s2t_task
         self.multi_asr = multi_asr
 
+        self.primtextmask = primtextmask
+
+    # Union[torch.Tensor, np.ndarray]は、torch.Tensor型でもnp.ndarray型でも、どっちでもよいの意味
+    # 引数textを追加した。
     @torch.no_grad()
     @typechecked
-    def __call__(self, speech: Union[torch.Tensor, np.ndarray]) -> Union[
+    def __call__(self, speech: Union[torch.Tensor, np.ndarray], text: Optional[Union[torch.Tensor, np.ndarray]] = None) -> Union[
         ListOfHypothesis,
         List[ListOfHypothesis],
         Tuple[
@@ -491,7 +506,7 @@ class Speech2Text:
         """Inference
 
         Args:
-            data: Input speech data
+            data: Input speech data, text(Option)
         Returns:
             text, token, token_int, hyp
 
@@ -505,7 +520,7 @@ class Speech2Text:
         speech = speech.unsqueeze(0).to(getattr(torch, self.dtype))
         # lengths: (1,)
         lengths = speech.new_full([1], dtype=torch.long, fill_value=speech.size(1))
-        batch = {"speech": speech, "speech_lengths": lengths}
+        batch = {"speech": speech, "speech_lengths": lengths, "text": text}
         logging.info("speech length: " + str(speech.size(1)))
 
         # a. To device
@@ -513,9 +528,9 @@ class Speech2Text:
 
         # b. Forward Encoder
         enc, enc_olens = self.asr_model.encode(**batch)
-        if self.multi_asr:
+        if self.multi_asr: # Whisper : False
             enc = enc.unbind(dim=1)  # (batch, num_inf, ...) -> num_inf x [batch, ...]
-        if self.enh_s2t_task or self.multi_asr:
+        if self.enh_s2t_task or self.multi_asr: # Whisper : False
             # Enh+ASR joint task or Multispkr ASR task
             # NOTE (Wangyou): the return type in this case is List[default_return_type]
             if self.multi_asr:
@@ -535,21 +550,28 @@ class Speech2Text:
                 results.append(ret)
 
         else:
-            # Normal ASR
+            # Normal ASR (include Whisper)
             intermediate_outs = None
-            if isinstance(enc, tuple):
+            if isinstance(enc, tuple): # Whisper : False
                 intermediate_outs = enc[1]
                 enc = enc[0]
-            assert len(enc) == 1, len(enc)
+            assert len(enc) == 1, len(enc)    
+
+            # addition code
+            if self.primtextmask > len(text.tolist()):
+                self.primtextmask = len(text.tolist())
+
+            if self.primtextmask:
+                self.beam_search.set_hyp_primer(list(self.converter.tokenizer.sot_sequence_including_notimestamps) + text.tolist()[:-1*self.primtextmask])
+                enc[0] = torch.full_like(enc[0], 0)
 
             # c. Passed the encoder result and the beam search
             results = self._decode_single_sample(enc[0])
 
             # Encoder intermediate CTC predictions
-            if intermediate_outs is not None:
+            if intermediate_outs is not None: # Whisper : False
                 encoder_interctc_res = self._decode_interctc(intermediate_outs)
                 results = (results, encoder_interctc_res)
-
         return results
 
     @typechecked
@@ -629,16 +651,19 @@ class Speech2Text:
                 )
                 + "\n"
             )
-        else:
+        else: # Whisper
             if hasattr(self.beam_search.nn_dict, "decoder"):
                 if isinstance(self.beam_search.nn_dict.decoder, S4Decoder):
                     # Setup: required for S4 autoregressive generation
                     for module in self.beam_search.nn_dict.decoder.modules():
                         if hasattr(module, "setup_step"):
                             module.setup_step()
+            # ここでbeam_search.pyへ。
             nbest_hyps = self.beam_search(
                 x=enc, maxlenratio=self.maxlenratio, minlenratio=self.minlenratio
             )
+
+
 
         nbest_hyps = nbest_hyps[: self.nbest]
 
@@ -747,6 +772,7 @@ def inference(
     threshold_probability: float,
     max_seq_len: int,
     max_mask_parallel: int,
+    primtextmask: int,
 ):
     if batch_size > 1:
         raise NotImplementedError("batch decoding is not implemented")
@@ -806,13 +832,33 @@ def inference(
         threshold_probability=threshold_probability,
         max_seq_len=max_seq_len,
         max_mask_parallel=max_mask_parallel,
+        primtextmask=primtextmask,
     )
     speech2text = Speech2Text.from_pretrained(
         model_tag=model_tag,
         **speech2text_kwargs,
     )
 
+    # (Pdb) train_data_path_and_name_and_type
+    # [('dump/raw/test_clean/text', 'text', 'text')]
+    # (Pdb) data_path_and_name_and_type
+    # [('dump/raw/test_clean/wav.scp', 'speech', 'kaldi_ark')]
+    # import pdb; pdb.set_trace()
+
+
+    # data_path_and_name_and_type = [('dump/raw/test_clean/wav.scp', 'speech', 'kaldi_ark')]
+    # dtype=dtype = float32
+    # batch_size = 1
+    # key_file = exp/asr_train_asr_whisper_medium_decselfatten_finetune_raw_en_whisper_multilingual_sp/decode_asr_whisper_noctc_beam10_asr_model_valid.acc.ave/test_clean/logdir/keys.1.scp
+    # num_workers= 1
+    # preprocess_fn=ASRTask.build_preprocess_fn(speech2text.asr_train_args, False),
+    # collate_fn=ASRTask.build_collate_fn(speech2text.asr_train_args, False),
+    # allow_variable_data_keys = false
+    # inference=True
     # 3. Build data-iterator
+
+    # [('dump/raw/test_clean/wav.scp', 'speech', 'kaldi_ark'), ('dump/raw/test_clean/text', 'text', 'text')] 
+
     loader = ASRTask.build_streaming_iterator(
         data_path_and_name_and_type,
         dtype=dtype,
@@ -827,24 +873,35 @@ def inference(
 
     # 7 .Start for-loop
     # FIXME(kamo): The output format should be discussed about
+    # keys=['1089-134686-0000'], batch = {'speech': tensor([[0.0003, 0.0003, 0.0004,  ..., 0.0021, 0.0021, 0.0016]]), 'speech_lengths': tensor([166960])}
     with DatadirWriter(output_dir) as writer:
-        for keys, batch in loader:
+        for keys, batch in loader: # ここで「iterable_dataset.py」の_iter_関数が呼び出される。(loaderが持っている関数)
             assert isinstance(batch, dict), type(batch)
             assert all(isinstance(s, str) for s in keys), keys
             _bs = len(next(iter(batch.values())))
             assert len(keys) == _bs, f"{len(keys)} != {_bs}"
+            # dict_items([('speech', tensor([[0.0003, 0.0003, 0.0004,  ..., 0.0021, 0.0021, 0.0016]])), ('speech_lengths', tensor([166960]))])において、k = 'speech',v = tensor([[0.0003, 0.0003, 0.0004,  ..., 0.0021, 0.0021, 0.0016]])である。
             batch = {k: v[0] for k, v in batch.items() if not k.endswith("_lengths")}
 
+            # batch = {'speech': tensor([0.0003, 0.0003, 0.0004,  ..., 0.0021, 0.0021, 0.0016])}
             # N-best list of (text, token, token_int, hyp_object)
+            # 関数に**を使うと、辞書のキーが関数のキーワード引数名として解釈され、そのキーに対応する値が引数として関数に渡される。
+
             try:
                 results = speech2text(**batch)
             except TooShortUttError as e:
                 logging.warning(f"Utterance {keys} {e}")
                 hyp = Hypothesis(score=0.0, scores={}, states={}, yseq=[])
                 results = [[" ", ["<space>"], [2], hyp]] * nbest
-                if enh_s2t_task:
+                if enh_s2t_task: # Whisper : False
                     num_spk = getattr(speech2text.asr_model.enh_model, "num_spk", 1)
                     results = [results for _ in range(num_spk)]
+
+            # import pdb; pdb.set_trace()
+            # results = 
+            #    [(' He hoped there would be stew for dinner, turnips and carrots and bruised potatoes and fat mutton pieces', ['ĠHe', 'Ġhoped', 'Ġthere', 'Ġwould', 'Ġbe', 'Ġstew', 'Ġfor', 'Ġdinner', ',', 'Ġturn', 'ips', 'Ġand', 'Ġcarrots', 'Ġand', 'Ġbru', 'ised', 'Ġpotatoes', 'Ġand', 'Ġfat', 'Ġmut', 'ton', 'Ġpieces'], [50259, 50359, 50363, 634, 19737, 456, 576, 312, 22654, 337, 6148, 11, 1261, 2600, 293, 21005, 293, 25267, 2640, 11811, 293, 4046, 5839, 1756, 3755], Hypothesis(yseq=tensor([50258, 50259, 50359, 50363,   634, 19737,   456,   576,   312, 22654,
+            #         337,  6148,    11,  1261,  2600,   293, 21005,   293, 25267,  2640,
+            #         11811,   293,  4046,  5839,  1756,  3755, 50257], device='cuda:0'), score=tensor(-16.5794), scores={'decoder': tensor(-5.0794), 'length_bonus': tensor(23.)}, states={'decoder': None, 'length_bonus': None}, hs=[]))]
 
             # Only supporting batch_size==1
             key = keys[0]
@@ -1155,6 +1212,7 @@ def get_parser():
         + "If you got OOM error, try to decrease this value."
         + "Default to -1, which means always predict all masks simultaneously.",
     )
+    group.add_argument("--primtextmask", type=int, default=0, help="Input text for decoder (the number of mask)")
     return parser
 
 

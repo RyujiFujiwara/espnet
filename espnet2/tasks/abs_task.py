@@ -1480,6 +1480,7 @@ class AbsTask(ABC):
                     # so it's enough to perform on rank0 node.
                     args.use_wandb = False
 
+            # 訓練を行わせる。
             # Don't give args to trainer.run() directly!!!
             # Instead of it, define "Options" object and build here.
             trainer_options = cls.trainer.build_options(args)
@@ -2053,10 +2054,19 @@ class AbsTask(ABC):
             preprocess=preprocess_fn,
             key_file=key_file,
         )
+        # dataset = 
+        #    IterableESPnetDataset(
+        #    speech: {"path": "dump/raw/test_clean/wav.scp", "type": "kaldi_ark"}
+        #    preprocess: <espnet2.train.preprocessor.CommonPreprocessor object at 0x7f6a9c44e1c0>)
+
+        # kwargs = {'collate_fn': <class 'espnet2.train.collate_fn.CommonCollateFn'>(float_pad_value=0.0, int_pad_value=0.0)}
+
         if dataset.apply_utt2category:
             kwargs.update(batch_size=1)
         else:
-            kwargs.update(batch_size=batch_size)
+            kwargs.update(batch_size=batch_size) # Whisper
+
+        # kwargs = {'collate_fn': <class 'espnet2.train.collate_fn.CommonCollateFn'>(float_pad_value=0.0, int_pad_value=0.0), 'batch_size': 1}
 
         cls.check_task_requirements(
             dataset, allow_variable_data_keys, train=False, inference=inference

@@ -5,6 +5,7 @@ from itertools import chain
 from typing import Any, Dict, List, NamedTuple, Tuple, Union
 
 import torch
+from typing import Optional
 
 from espnet.nets.e2e_asr_common import end_detect
 from espnet.nets.scorer_interface import PartialScorerInterface, ScorerInterface
@@ -428,13 +429,33 @@ class BeamSearch(torch.nn.Module):
         logger.info("decoder input length: " + str(inp.shape[0]))
         logger.info("max output length: " + str(maxlen))
         logger.info("min output length: " + str(minlen))
-
         # main loop of prefix search
         running_hyps = self.init_hyp(x if pre_x is None else pre_x)
         ended_hyps = []
-        for i in range(maxlen):
+
+        # text = text.to('cuda:0')
+        # new = torch.cat((running_hyps.yseq[0],text), dim=0)
+        # new = torch.unsqueeze(new,0)
+
+        # ex.) running_hyps = BatchHypothesis(yseq=tensor([[50258, 50259, 50359, 50363]], device='cuda:0'), score=tensor([0.]), length=tensor([4]), scores={'decoder': tensor([0.]), 'length_bonus': tensor([0.])}, states={'decoder': [None], 'length_bonus': [None]}, hs=[])
+        # このforループで一つずつ推定結果を出力している。
+        for i in range(maxlen):      
             logger.debug("position " + str(i))
             best = self.search(running_hyps, x, pre_x=pre_x)
+            # N-best search results are in "best"
+            # best = BatchHypothesis(yseq=tensor([[50258, 50259, 50359, 50363, 26562],
+            # [50258, 50259, 50359, 50363, 22058],
+            # [50258, 50259, 50359, 50363,  2221],
+            # [50258, 50259, 50359, 50363,  1713],
+            # [50258, 50259, 50359, 50363,  4735],
+            # [50258, 50259, 50359, 50363, 33660],
+            # [50258, 50259, 50359, 50363,   275],
+            # [50258, 50259, 50359, 50363,   307],
+            # [50258, 50259, 50359, 50363,   220],
+            # [50258, 50259, 50359, 50363,  4505]], device='cuda:0'), score=tensor([-0.6440, -4.5309, -4.9147, -6.1628, -7.5863, -7.8870, -7.9142, -7.9220,
+            # -8.4321, -8.4568]), length=tensor([5, 5, 5, 5, 5, 5, 5, 5, 5, 5]), scores={'decoder': tensor([-0.1440, -4.0309, -4.4147, -5.6628, -7.0863, -7.3870, -7.4142, -7.4220,
+            # -7.9321, -7.9568]), 'length_bonus': tensor([1., 1., 1., 1., 1., 1., 1., 1., 1., 1.])}, states={'decoder': [None, None, None, None, None, None, None, None, None, None], 'length_bonus': [None, None, None, None, None, None, None, None, None, None]}, hs=[])
+            
             # post process of one iteration
             running_hyps = self.post_process(
                 i, maxlen, minlen, maxlenratio, best, ended_hyps
@@ -471,6 +492,7 @@ class BeamSearch(torch.nn.Module):
             )
 
         # report the best result
+        # nbest_hyps[0]には、推論結果及びスコアが格納されている。
         best = nbest_hyps[0]
         for k, v in best.scores.items():
             logger.info(
@@ -479,6 +501,10 @@ class BeamSearch(torch.nn.Module):
         logger.info(f"total log probability: {best.score:.2f}")
         logger.info(f"normalized log probability: {best.score / len(best.yseq):.2f}")
         logger.info(f"total number of ended hypotheses: {len(nbest_hyps)}")
+
+        # self.token_listには、全ての種類のトークンが含まれている(約50000の要素を持つ配列)
+        # best.yseq[1:-1]には、推論結果の要素番号が格納されている。
+        # つまり、best.yseq[1:-1]の要素番号に対応したトークンをself.token_listから順に取り出している。
         if self.token_list is not None:
             logger.info(
                 "best hypo: "
@@ -535,6 +561,9 @@ class BeamSearch(torch.nn.Module):
 
         # add ended hypotheses to a final list, and removed them from current hypotheses
         # (this will be a problem, number of hyps < beam)
+
+        # 推論途中のシーケンスの末尾が終了を示すトークンになった時に、その推論結果がended_hypsに渡される。
+        # それ以外の者はremained_hypsに格納され、また次のトークンの推定の為にループに戻る。
         remained_hyps = []
         for hyp in running_hyps:
             if hyp.yseq[-1] == self.eos:

@@ -27,6 +27,7 @@ class OpenAIWhisperEncoder(AbsEncoder):
         do_pad_trim: bool = False,
     ):
         try:
+            # ここでwhisperのライブラリをインポートすることによって、whisperの関数は自在に使える。
             import whisper
             from whisper.audio import HOP_LENGTH, N_FFT, N_MELS, N_SAMPLES
         except Exception as e:
@@ -50,9 +51,11 @@ class OpenAIWhisperEncoder(AbsEncoder):
         self.dropout = torch.nn.Dropout(dropout_rate)
 
         assert whisper_model in whisper.available_models()
+        # モデルをライブラリからとってきている？(device=cpu？)
         _model = whisper.load_model(
             whisper_model, download_root=download_dir, device="cpu"
         )
+        # ここでwhisper_modelに応じたwhisperのencoderをself.encodersに格納している。
         self.encoders = copy.deepcopy(_model.encoder)
         self.encoders.train()
 
@@ -123,6 +126,7 @@ class OpenAIWhisperEncoder(AbsEncoder):
 
         return log_spec, olens
 
+    # whisperの構造を定義している場所。ものすごく重要っぽい。
     def whisper_encode(
         self,
         input: torch.Tensor,
@@ -137,6 +141,7 @@ class OpenAIWhisperEncoder(AbsEncoder):
         if n_frames <= max_pos:
             x = (x + self.encoders.positional_embedding[: x.size(1), :]).to(x.dtype)
         else:
+            # エラーが出た原因箇所。結構大事な条件
             # due to positional encoding, audios >30 sec won't be accepted
             x = x[:, :max_pos, :] + self.encoders.positional_embedding
 

@@ -56,6 +56,7 @@ class ESPnetASRModel(AbsESPnetModel):
         interctc_weight: float = 0.0,
         ignore_id: int = -1,
         lsm_weight: float = 0.0,
+        encoder_mask: bool = False,
         length_normalized_loss: bool = False,
         report_cer: bool = True,
         report_wer: bool = True,
@@ -101,6 +102,8 @@ class ESPnetASRModel(AbsESPnetModel):
         self.preencoder = preencoder
         self.postencoder = postencoder
         self.encoder = encoder
+
+        self.encoder_mask = encoder_mask
 
         if not hasattr(self.encoder, "interctc_use_conditioning"):
             self.encoder.interctc_use_conditioning = False
@@ -188,6 +191,8 @@ class ESPnetASRModel(AbsESPnetModel):
             self.ctc = ctc
 
         self.extract_feats_in_collect_stats = extract_feats_in_collect_stats
+
+        # whisperの場合の分岐がある
 
         self.is_encoder_whisper = "Whisper" in type(self.encoder).__name__
 
@@ -326,6 +331,7 @@ class ESPnetASRModel(AbsESPnetModel):
             stats["wer_transducer"] = wer_transducer
 
         else:
+            # Whisperはここに当てはまるか。
             # 2b. Attention decoder branch
             if self.ctc_weight != 1.0:
                 loss_att, acc_att, cer_att, wer_att = self._calc_att_loss(
@@ -333,7 +339,7 @@ class ESPnetASRModel(AbsESPnetModel):
                 )
 
             # 3. CTC-Att loss definition
-            if self.ctc_weight == 0.0:
+            if self.ctc_weight == 0.0: # whisper
                 loss = loss_att
             elif self.ctc_weight == 1.0:
                 loss = loss_ctc
@@ -365,7 +371,7 @@ class ESPnetASRModel(AbsESPnetModel):
         return {"feats": feats, "feats_lengths": feats_lengths}
 
     def encode(
-        self, speech: torch.Tensor, speech_lengths: torch.Tensor
+        self, speech: torch.Tensor, speech_lengths: torch.Tensor, text: Optional[torch.Tensor] = None
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Frontend + Encoder. Note that this method is used by asr_inference.py
 
@@ -533,6 +539,8 @@ class ESPnetASRModel(AbsESPnetModel):
         assert nll.size(0) == total_num
         return nll
 
+    # loss 計算
+
     def _calc_att_loss(
         self,
         encoder_out: torch.Tensor,
@@ -550,13 +558,26 @@ class ESPnetASRModel(AbsESPnetModel):
             )
             ys_pad_lens += 1
 
+        # ys_padには正解データのトークンIDが含まれている。(-1されて)
+        # In whisper, add '50258' top of "ys_in_pad", and exchange '-1' to '50257'(eos) in the end.
+        # No change == "ys_out_pad"
+        # そのため、ys_in_pad[0]を入力とした時の出力をys_out_pad[0]と比較し、loss計算していると考えられる。（ys_in_padとys_out_padは1個ずれ）
+        # self.ignore_id == -1
         ys_in_pad, ys_out_pad = add_sos_eos(ys_pad, self.sos, self.eos, self.ignore_id)
         ys_in_lens = ys_pad_lens + 1
+
+        # ## addition code (for mask encoder_out)##
+        # import pdb; pdb.set_trace()
+        if self.encoder_mask == True:
+            encoder_out = torch.full_like(encoder_out, 0)
 
         # 1. Forward decoder
         decoder_out, _ = self.decoder(
             encoder_out, encoder_out_lens, ys_in_pad, ys_in_lens
         )
+        # ex.) torch.argmax(decoder_out,dim=2) == [50259,50358,1011,364,....] ←つまり、decoder_outは各トークンの出力確率
+        # ここでの出力確率結果では、「<|en|><|translate|>...」に対応している。タイムスタンプに関するトークンはない。
+        # decoder_out.shape →　[1,79,51865]   つまり、[一つ目の単語における各単語の生起確率,二つ目…]という風に並んでいる。
 
         # 2. Compute attention loss
         loss_att = self.criterion_att(decoder_out, ys_out_pad)

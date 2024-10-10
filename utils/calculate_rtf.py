@@ -70,17 +70,17 @@ def main():
     log_files = args.log_name + ".*.log"
     start_times_marker = "INFO: " + args.start_times_marker
     end_times_marker = "INFO: " + args.end_times_marker
-    for x in glob.glob(os.path.join(args.log_dir, log_files)):
+    for x in glob.glob(os.path.join(args.log_dir, log_files)): # …test_other/logdir/asr_inference.*.log
         audio_durations = []
         start_times = []
         end_times = []
         with codecs.open(x, "r", "utf-8") as f:
             for line in f:
-                x = line.strip()
-                if start_times_marker in x:
-                    audio_durations += [int(x.split(args.start_times_marker + ": ")[1])]
+                x = line.strip() # remove the blank
+                if start_times_marker in x: #ex.) If it contains "INFO: speech length"
+                    audio_durations += [int(x.split(args.start_times_marker + ": ")[1])] # audio_durations = "35421" of "speech length: 35421"
                     start_times += [parser.parse(x.split("(")[0])]
-                elif end_times_marker in x:
+                elif end_times_marker in x: #ex.) If it contains is "INFO: best hypo"
                     end_times += [parser.parse(x.split("(")[0])]
 
         if args.inf_num > 1:

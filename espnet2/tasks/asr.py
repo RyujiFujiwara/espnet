@@ -87,6 +87,7 @@ from espnet2.utils.get_default_kwargs import get_default_kwargs
 from espnet2.utils.nested_dict_action import NestedDictAction
 from espnet2.utils.types import float_or_none, int_or_none, str2bool, str_or_none
 
+
 frontend_choices = ClassChoices(
     name="frontend",
     classes=dict(
@@ -493,6 +494,8 @@ class ASRTask(AbsTask):
         logging.info(f"Optional Data Names: {retval }")
         return retval
 
+    # 重要っぽい。encoder,decoder等を設定したモデルを"ESPnetASRModel"の型で作っている。
+    # from espnet2.asr.espnet_model import ESPnetASRModel
     @classmethod
     @typechecked
     def build_model(cls, args: argparse.Namespace) -> ESPnetASRModel:
@@ -533,6 +536,7 @@ class ASRTask(AbsTask):
             frontend = None
             input_size = args.input_size
 
+        # データの水増し
         # 2. Data augmentation for spectrogram
         if args.specaug is not None:
             specaug_class = specaug_choices.get_class(args.specaug)
@@ -556,7 +560,7 @@ class ASRTask(AbsTask):
         else:
             preencoder = None
 
-        # 4. Encoder
+        # 4. Encoder　ex.) encoder_class = OpenAIWhisperEncoder
         encoder_class = encoder_choices.get_class(args.encoder)
         encoder = encoder_class(input_size=input_size, **args.encoder_conf)
 

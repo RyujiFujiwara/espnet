@@ -221,6 +221,7 @@ class Trainer:
         use_adapter = getattr(trainer_options, "use_adapter", False)
         save_strategy = getattr(trainer_options, "save_strategy", "all")
         if use_adapter:
+            # 出たことのあるエラー。
             if adapter == "lora" and lora is None:
                 raise RuntimeError("Requiring loralib. Do 'pip install loralib'")
             elif adapter == "houlsby" and s3prl is None:
@@ -817,6 +818,8 @@ class Trainer:
 
             batch["utt_id"] = utt_id
 
+
+            # モデルの順伝播を行い、その結果を集計して報告する処理
             batch = to_device(batch, "cuda" if ngpu > 0 else "cpu")
             if no_forward_run:
                 continue
