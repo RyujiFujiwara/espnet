@@ -342,7 +342,18 @@ class Speech2Text:
                     sos=asr_model.sos,
                     token_list=token_list,
                 )
-            else: # Whisper   (asr_model.eos, asr_model.sos = 50257, 50258)
+            else: # Whisper
+                """
+                    beam_size=10,
+                    weights={'decoder': 1.0, 'ctc': 0.0, 'lm': 0.0, 'ngram': 0.9, 'length_bonus': -0.5},
+                    scorers={'(モデル構造)','ctc': <espnet.nets.scorers.ctc.CTCPrefixScorer object at 0x7fa6fc3d4640>, 'length_bonus': <espnet.nets.scorers.length_bonus.LengthBonus object at 0x7fa6fc3d49a0>, 'ngram': None},
+                    sos=50258,
+                    eos=50257,
+                    vocab_size=51865,
+                    token_list=[…,'<|29.96|>', '<|29.98|>', '<|30.00|>'],
+                    pre_beam_score_key="full",
+                    normalize_length=False,
+                """
                 beam_search = BeamSearch(
                     beam_size=beam_size,
                     weights=weights,

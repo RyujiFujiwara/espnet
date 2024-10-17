@@ -13,6 +13,7 @@ test_sets="test_clean test_other dev_clean dev_other"
 
 asr_config=conf/tuning/train_asr_whisper_medium_simple.yaml
 inference_config=conf/tuning/decode_asr_whisper_noctc_beam10.yaml
+# inference_config=conf/tuning/decode_asr_whisper_noctc_beam10_primtext.yaml
 
 lm_config=conf/train_lm_transformer.yaml
 use_lm=false

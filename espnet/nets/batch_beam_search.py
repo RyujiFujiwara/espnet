@@ -183,6 +183,11 @@ class BatchBeamSearch(BeamSearch):
         """
         scores = dict()
         states = dict()
+        import pdb; pdb.set_trace()
+        # hyp.yseq, scores あたりを使えばwhisperルールを適用できそう。
+        # k = {"decoder","length_bonus"}
+        # scores = {'decoder': tensor([[-14.5565, -11.8180, -14.7602,  ..., -13.4792, -12.8389, -14.1823]], device='cuda:0'), 'length_bonus': tensor([[1., 1., 1.,  ..., 1., 1., 1.]], device='cuda:0')}
+        # batch_scoreメソッドはモデルの方にある。（/espnet/espnet2/asr/decoder/whisper_decoder.py）
         for k, d in self.full_scorers.items():
             if "decoder" in k and self.return_hs:
                 (scores[k], hs), states[k] = d.batch_score(
@@ -279,7 +284,7 @@ class BatchBeamSearch(BeamSearch):
         weighted_scores = torch.zeros(
             n_batch, self.n_vocab, dtype=x.dtype, device=x.device
         )
-        if self.return_hs:
+        if self.return_hs: # False
             hs, scores, states = self.score_full(
                 running_hyps,
                 x.expand(n_batch, *x.shape),
@@ -295,7 +300,9 @@ class BatchBeamSearch(BeamSearch):
                     pre_x.expand(n_batch, *pre_x.shape) if pre_x is not None else None
                 ),
             )
-
+        
+        # self.weights = {'decoder': 1.0, 'ctc': 0.0, 'lm': 0.0, 'ngram': 0.9, 'length_bonus': -0.5} 
+        # ここでそれぞれの結果を足し合わせ、最終的なスコアを算出する。
         for k in self.full_scorers:
             weighted_scores += self.weights[k] * scores[k]
         # partial scoring
@@ -309,6 +316,7 @@ class BatchBeamSearch(BeamSearch):
         # NOTE(takaaki-hori): Unlike BeamSearch, we assume that score_partial returns
         # full-size score matrices, which has non-zero scores for part_ids and zeros
         # for others.
+        # part_scores = {} (この辞書は空なので、実質実行されない。)
         part_scores, part_states = self.score_partial(running_hyps, part_ids, x, pre_x)
         for k in self.part_scorers:
             weighted_scores += self.weights[k] * part_scores[k]
@@ -322,6 +330,7 @@ class BatchBeamSearch(BeamSearch):
         # update hyps
         best_hyps = []
         prev_hyps = self.unbatchfy(running_hyps)
+        # prev_hyps = [Hypothesis(yseq=tensor([50258, 50259, 50359, 50363], device='cuda:0'), score=tensor(0.), scores={'decoder': tensor(0.), 'length_bonus': tensor(0.)}, states={'decoder': None, 'length_bonus': None}, hs=[])]
         for (
             full_prev_hyp_id,
             full_new_token_id,

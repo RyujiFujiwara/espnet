@@ -225,6 +225,9 @@ class OpenAIWhisperDecoder(AbsDecoder, BatchScorerInterface):
 
         """
         # batch decoding, dummy mask is passed
+        # ys = tensor([[50258, 50259, 50359, 50363]], device='cuda:0')
+        # xs = 音声特徴量
         logp, states = self.forward_one_step(ys, torch.empty(0), xs, cache=None)
 
+        # logp = tensor([[-14.5565, -11.8180, -14.7602,  ..., -13.4792, -12.8389, -14.1823]], device='cuda:0')
         return logp, None

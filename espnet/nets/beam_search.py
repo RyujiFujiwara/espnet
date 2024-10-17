@@ -70,6 +70,18 @@ class BeamSearch(torch.nn.Module):
             normalize_length (bool): If true, select the best ended hypotheses
                 based on length-normalized scores rather than the accumulated scores
 
+        Example:
+            beam_size=10,
+            weights={'decoder': 1.0, 'ctc': 0.0, 'lm': 0.0, 'ngram': 0.9, 'length_bonus': -0.5},
+            scorers={'(モデル構造)','ctc': <espnet.nets.scorers.ctc.CTCPrefixScorer object at 0x7fa6fc3d4640>, 'length_bonus': <espnet.nets.scorers.length_bonus.LengthBonus object at 0x7fa6fc3d49a0>, 'ngram': None},
+            sos=50258,
+            eos=50257,
+            vocab_size=51865,
+            token_list=[…,'<|29.96|>', '<|29.98|>', '<|30.00|>'],
+            pre_beam_score_key="full",
+            normalize_length=False,
+
+
         """
         super().__init__()
         # set scorers
@@ -80,6 +92,7 @@ class BeamSearch(torch.nn.Module):
         # this module dict is required for recursive cast
         # `self.to(device, dtype)` in `recog.py`
         self.nn_dict = torch.nn.ModuleDict()
+        # k = "decoder" , v = (decoderのモデル構造)
         for k, v in scorers.items():
             w = weights.get(k, 0)
             if w == 0 or v is None:
@@ -91,7 +104,7 @@ class BeamSearch(torch.nn.Module):
             if isinstance(v, PartialScorerInterface):
                 self.part_scorers[k] = v
             else:
-                self.full_scorers[k] = v
+                self.full_scorers[k] = v # Whisper
             if isinstance(v, torch.nn.Module):
                 self.nn_dict[k] = v
 
@@ -336,7 +349,7 @@ class BeamSearch(torch.nn.Module):
         best_hyps = []
         part_ids = torch.arange(self.n_vocab, device=x.device)  # no pre-beam
         for hyp in running_hyps:
-            # scoring
+            # scoring (weighted_scores[i(notimestampの番号)] = -np.infにすればよい？)
             weighted_scores = torch.zeros(self.n_vocab, dtype=x.dtype, device=x.device)
             if self.return_hs:
                 hs, scores, states = self.score_full(hyp, x, pre_x=pre_x)
@@ -441,6 +454,7 @@ class BeamSearch(torch.nn.Module):
         # このforループで一つずつ推定結果を出力している。
         for i in range(maxlen):      
             logger.debug("position " + str(i))
+            # /mnt/kiso-qnap2/fujiwara/B4/espnet/espnet/nets/batch_beam_search.py へと飛ぶ。(継承先)
             best = self.search(running_hyps, x, pre_x=pre_x)
             # N-best search results are in "best"
             # best = BatchHypothesis(yseq=tensor([[50258, 50259, 50359, 50363, 26562],
@@ -460,6 +474,7 @@ class BeamSearch(torch.nn.Module):
             running_hyps = self.post_process(
                 i, maxlen, minlen, maxlenratio, best, ended_hyps
             )
+
             # end detection
             if maxlenratio == 0.0 and end_detect([h.asdict() for h in ended_hyps], i):
                 logger.info(f"end detected at {i}")
