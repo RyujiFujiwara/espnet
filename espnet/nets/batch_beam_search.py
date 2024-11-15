@@ -438,12 +438,15 @@ class BatchBeamSearch(BeamSearch):
                     ended_hyps.append(hyp)
             remained_ids = torch.nonzero(is_eos == 0, as_tuple=False).view(-1).cpu()
         else:
-            is_eos_cont = (
+            is_eos = (
                 running_hyps.yseq[torch.arange(n_batch), running_hyps.length - 1]
-                == self.eos or
+                == self.eos
+            )
+            is_cont = (
                 running_hyps.yseq[torch.arange(n_batch), running_hyps.length - 1]
                 == 50255
             )
+            is_eos_cont = torch.logical_or(is_eos, is_cont)
             for b in torch.nonzero(is_eos_cont, as_tuple=False).view(-1):
                 hyp = self._select(running_hyps, b)
                 if i >= minlen:
