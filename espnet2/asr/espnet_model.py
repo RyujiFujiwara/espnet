@@ -57,6 +57,7 @@ class ESPnetASRModel(AbsESPnetModel):
         ignore_id: int = -1,
         lsm_weight: float = 0.0,
         encoder_mask: bool = False,
+        part_predict: int = 0,
         length_normalized_loss: bool = False,
         report_cer: bool = True,
         report_wer: bool = True,
@@ -104,6 +105,7 @@ class ESPnetASRModel(AbsESPnetModel):
         self.encoder = encoder
 
         self.encoder_mask = encoder_mask
+        self.part_predict = part_predict
 
         if not hasattr(self.encoder, "interctc_use_conditioning"):
             self.encoder.interctc_use_conditioning = False
@@ -572,6 +574,30 @@ class ESPnetASRModel(AbsESPnetModel):
         # self.ignore_id == -1
         ys_in_pad, ys_out_pad = add_sos_eos(ys_pad, self.sos, self.eos, self.ignore_id)
         ys_in_lens = ys_pad_lens + 1
+
+
+        if self.part_predict != 0: # for part_predict
+            ys_in_rand_lens = []
+            primtextmask = self.part_predict
+
+            for i,N in enumerate(ys_in_lens):
+                if N-primtextmask < 1:
+                    rand_values = torch.tensor([1], device='cuda:0')
+                else:
+                    # 1 ~ N-2の範囲で乱数を生成
+                    rand_values = torch.randint(1, (N-primtextmask)+1, (1,), device='cuda:0')
+                ys_in_rand_lens.append(rand_values)
+                if rand_values == (N-primtextmask): # for <eos>
+                    ys_out_pad[i,:rand_values-1] = self.ignore_id
+                else: # for <cont>
+                    ys_in_pad[i,rand_values+primtextmask:] = 50255 # unused token
+                    ys_out_pad[i,rand_values+primtextmask-1:] = self.ignore_id
+                    ys_out_pad[i,:rand_values-1] = self.ignore_id
+                    ys_out_pad[i,rand_values+1] = 50255
+
+
+        # 結果をテンソルに変換
+        ys_in_lens = torch.cat(ys_in_rand_lens)
 
         # 1. Forward decoder
         decoder_out, _ = self.decoder(
