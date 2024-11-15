@@ -250,6 +250,9 @@ class ESPnetASRModel(AbsESPnetModel):
         loss_transducer, cer_transducer, wer_transducer = None, None, None
         stats = dict()
 
+        if self.encoder_mask == True:
+            encoder_out = torch.full_like(encoder_out, 0)
+
         # 1. CTC branch
         if self.ctc_weight != 0.0:
             loss_ctc, cer_ctc = self._calc_ctc_loss(
@@ -331,7 +334,7 @@ class ESPnetASRModel(AbsESPnetModel):
             stats["wer_transducer"] = wer_transducer
 
         else:
-            # Whisperはここに当てはまるか。
+            # Whisperはここ。
             # 2b. Attention decoder branch
             if self.ctc_weight != 1.0:
                 loss_att, acc_att, cer_att, wer_att = self._calc_att_loss(
@@ -474,10 +477,14 @@ class ESPnetASRModel(AbsESPnetModel):
         ys_in_pad, ys_out_pad = add_sos_eos(ys_pad, self.sos, self.eos, self.ignore_id)
         ys_in_lens = ys_pad_lens + 1
 
+        if self.encoder_mask == True:
+            encoder_out = torch.full_like(encoder_out, 0)
+
         # 1. Forward decoder
         decoder_out, _ = self.decoder(
             encoder_out, encoder_out_lens, ys_in_pad, ys_in_lens
         )  # [batch, seqlen, dim]
+        
         batch_size = decoder_out.size(0)
         decoder_num_class = decoder_out.size(2)
         # nll: negative log-likelihood
@@ -565,11 +572,6 @@ class ESPnetASRModel(AbsESPnetModel):
         # self.ignore_id == -1
         ys_in_pad, ys_out_pad = add_sos_eos(ys_pad, self.sos, self.eos, self.ignore_id)
         ys_in_lens = ys_pad_lens + 1
-
-        # ## addition code (for mask encoder_out)##
-        # import pdb; pdb.set_trace()
-        if self.encoder_mask == True:
-            encoder_out = torch.full_like(encoder_out, 0)
 
         # 1. Forward decoder
         decoder_out, _ = self.decoder(
