@@ -121,6 +121,7 @@ class Speech2Text:
         max_seq_len: int = 5,
         max_mask_parallel: int = -1,
         primtextmask: int = 0,
+        hyp_include_cont: bool = False,
     ):
 
         task = ASRTask if not enh_s2t_task else EnhS2TTask
@@ -360,6 +361,8 @@ class Speech2Text:
                     scorers=scorers,
                     sos=asr_model.sos,
                     eos=asr_model.eos,
+                    cont=50255,
+                    hyp_include_cont=hyp_include_cont
                     vocab_size=len(token_list),
                     token_list=token_list,
                     pre_beam_score_key=None if ctc_weight == 1.0 else "full",
@@ -501,6 +504,7 @@ class Speech2Text:
         self.multi_asr = multi_asr
 
         self.primtextmask = primtextmask
+        self.hyp_include_cont = hyp_include_cont
 
     # Union[torch.Tensor, np.ndarray]は、torch.Tensor型でもnp.ndarray型でも、どっちでもよいの意味
     # 引数textを追加した。
@@ -576,7 +580,7 @@ class Speech2Text:
                 self.beam_search.set_hyp_primer(list(self.converter.tokenizer.sot_sequence_including_notimestamps) + text.tolist()[:-1*self.primtextmask])
                 enc[0] = torch.full_like(enc[0], 0)
 
-            # c. Passed the encoder result and the beam search
+            # c. Passed the encoder result and the beam search (Whisper)
             results = self._decode_single_sample(enc[0])
 
             # Encoder intermediate CTC predictions
@@ -784,6 +788,7 @@ def inference(
     max_seq_len: int,
     max_mask_parallel: int,
     primtextmask: int,
+    hyp_include_cont: bool,
 ):
     if batch_size > 1:
         raise NotImplementedError("batch decoding is not implemented")
@@ -844,6 +849,7 @@ def inference(
         max_seq_len=max_seq_len,
         max_mask_parallel=max_mask_parallel,
         primtextmask=primtextmask,
+        hyp_include_cont=hyp_include_cont,
     )
     speech2text = Speech2Text.from_pretrained(
         model_tag=model_tag,
@@ -908,7 +914,6 @@ def inference(
                     num_spk = getattr(speech2text.asr_model.enh_model, "num_spk", 1)
                     results = [results for _ in range(num_spk)]
 
-            # import pdb; pdb.set_trace()
             # results = 
             #    [(' He hoped there would be stew for dinner, turnips and carrots and bruised potatoes and fat mutton pieces', ['ĠHe', 'Ġhoped', 'Ġthere', 'Ġwould', 'Ġbe', 'Ġstew', 'Ġfor', 'Ġdinner', ',', 'Ġturn', 'ips', 'Ġand', 'Ġcarrots', 'Ġand', 'Ġbru', 'ised', 'Ġpotatoes', 'Ġand', 'Ġfat', 'Ġmut', 'ton', 'Ġpieces'], [50259, 50359, 50363, 634, 19737, 456, 576, 312, 22654, 337, 6148, 11, 1261, 2600, 293, 21005, 293, 25267, 2640, 11811, 293, 4046, 5839, 1756, 3755], Hypothesis(yseq=tensor([50258, 50259, 50359, 50363,   634, 19737,   456,   576,   312, 22654,
             #         337,  6148,    11,  1261,  2600,   293, 21005,   293, 25267,  2640,
@@ -1224,6 +1229,7 @@ def get_parser():
         + "Default to -1, which means always predict all masks simultaneously.",
     )
     group.add_argument("--primtextmask", type=int, default=0, help="Input text for decoder (the number of mask)")
+    group.add_argument("--hyp_include_cont", type=bool, default=False, help="whether cont label include hypothesis")
     return parser
 
 

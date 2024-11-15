@@ -43,6 +43,8 @@ class BeamSearch(torch.nn.Module):
         vocab_size: int,
         sos: int,
         eos: int,
+        cont: int,
+        hyp_include_cont: bool = False,
         token_list: List[str] = None,
         pre_beam_ratio: float = 1.5,
         pre_beam_score_key: str = None,
@@ -111,6 +113,8 @@ class BeamSearch(torch.nn.Module):
         # set configurations
         self.sos = sos
         self.eos = eos
+        self.cont = 50255
+        self.hyp_include_cont = hyp_include_cont
 
         # added for OpenAI Whisper decoding
         self.hyp_primer = hyp_primer
