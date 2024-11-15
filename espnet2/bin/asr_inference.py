@@ -361,8 +361,7 @@ class Speech2Text:
                     scorers=scorers,
                     sos=asr_model.sos,
                     eos=asr_model.eos,
-                    cont=50255,
-                    hyp_include_cont=hyp_include_cont
+                    hyp_include_cont=hyp_include_cont,
                     vocab_size=len(token_list),
                     token_list=token_list,
                     pre_beam_score_key=None if ctc_weight == 1.0 else "full",

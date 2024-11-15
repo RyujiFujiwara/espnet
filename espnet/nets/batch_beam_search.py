@@ -442,7 +442,7 @@ class BatchBeamSearch(BeamSearch):
                 running_hyps.yseq[torch.arange(n_batch), running_hyps.length - 1]
                 == self.eos or
                 running_hyps.yseq[torch.arange(n_batch), running_hyps.length - 1]
-                == self.cont
+                == 50255
             )
             for b in torch.nonzero(is_eos_cont, as_tuple=False).view(-1):
                 hyp = self._select(running_hyps, b)
