@@ -7,10 +7,10 @@ set -o pipefail
 
 train_set="train_clean_100"
 valid_set="dev"
-test_sets="test_clean test_other dev_clean dev_other"
+test_sets="test_clean"
 
-asr_config=conf/tuning/train_asr_whisper_tiny_decselfatten_finetune.yaml
-inference_config=conf/tuning/decode_asr_whisper_noctc_beam10.yaml
+asr_config=conf/tuning/train_asr_whisper_medium_decselfatten_finetune_part_predict.yaml
+inference_config=conf/tuning/decode_asr_whisper_noctc_beam10_primtext.yaml
 
 lm_config=conf/train_lm_transformer.yaml
 use_lm=false
