@@ -918,8 +918,6 @@ def inference(
             #         337,  6148,    11,  1261,  2600,   293, 21005,   293, 25267,  2640,
             #         11811,   293,  4046,  5839,  1756,  3755, 50257], device='cuda:0'), score=tensor(-16.5794), scores={'decoder': tensor(-5.0794), 'length_bonus': tensor(23.)}, states={'decoder': None, 'length_bonus': None}, hs=[]))]
 
-            import pdb; pdb.set_trace()
-
             # Only supporting batch_size==1
             key = keys[0]
             if enh_s2t_task or multi_asr:
