@@ -7,7 +7,7 @@ set -o pipefail
 
 train_set="train_clean_100"
 valid_set="dev"
-test_sets="test_clean test_other dev_clean dev_other"
+test_sets="test_clean"
 
 asr_config=conf/tuning/train_asr_whisper_tiny_lora_finetune.yaml
 inference_config=conf/tuning/decode_asr_whisper_noctc_beam10.yaml

@@ -43,6 +43,7 @@ class BeamSearch(torch.nn.Module):
         vocab_size: int,
         sos: int,
         eos: int,
+        hyp_include_cont: bool = False,
         token_list: List[str] = None,
         pre_beam_ratio: float = 1.5,
         pre_beam_score_key: str = None,
@@ -111,6 +112,7 @@ class BeamSearch(torch.nn.Module):
         # set configurations
         self.sos = sos
         self.eos = eos
+        self.hyp_include_cont = hyp_include_cont
 
         # added for OpenAI Whisper decoding
         self.hyp_primer = hyp_primer
@@ -508,6 +510,7 @@ class BeamSearch(torch.nn.Module):
 
         # report the best result
         # nbest_hyps[0]には、推論結果及びスコアが格納されている。
+
         best = nbest_hyps[0]
         for k, v in best.scores.items():
             logger.info(
@@ -520,22 +523,42 @@ class BeamSearch(torch.nn.Module):
         # self.token_listには、全ての種類のトークンが含まれている(約50000の要素を持つ配列)
         # best.yseq[1:-1]には、推論結果の要素番号が格納されている。
         # つまり、best.yseq[1:-1]の要素番号に対応したトークンをself.token_listから順に取り出している。
-        if self.token_list is not None:
-            logger.info(
-                "best hypo: "
-                + "".join([self.token_list[x] for x in best.yseq[1:-1]])
-                + "\n"
-            )
-        if best.yseq[1:-1].shape[0] == maxlen:
-            logger.warning(
-                "best hypo length: {} == max output length: {}".format(
-                    best.yseq[1:-1].shape[0], maxlen
+
+        if not(self.hyp_include_cont):
+            if self.token_list is not None:
+                logger.info(
+                    "best hypo: "
+                    + "".join([self.token_list[x] for x in best.yseq[1:-1]])
+                    + "\n"
                 )
-            )
-            logger.warning(
-                "decoding may be stopped by the max output length limitation, "
-                + "please consider to increase the maxlenratio."
-            )
+            if best.yseq[1:-1].shape[0] == maxlen:
+                logger.warning(
+                    "best hypo length: {} == max output length: {}".format(
+                        best.yseq[1:-1].shape[0], maxlen
+                    )
+                )
+                logger.warning(
+                    "decoding may be stopped by the max output length limitation, "
+                    + "please consider to increase the maxlenratio."
+                )
+        else:
+            if self.token_list is not None:
+                logger.info(
+                    "best hypo: "
+                    + "".join([self.token_list[x] for x in best.yseq[1:-1]])
+                    + (" <cont>" if best.yseq[-1] == 50255 else " <eos>")  # show <eos> or <cont>
+                    + "\n"
+                )
+            if best.yseq[1:-1].shape[0] == maxlen:
+                logger.warning(
+                    "best hypo length: {} == max output length: {}".format(
+                        best.yseq[1:-1].shape[0], maxlen
+                    )
+                )
+                logger.warning(
+                    "decoding may be stopped by the max output length limitation, "
+                    + "please consider to increase the maxlenratio."
+                )
         return nbest_hyps
 
     def post_process(

@@ -183,7 +183,7 @@ class BatchBeamSearch(BeamSearch):
         """
         scores = dict()
         states = dict()
-        import pdb; pdb.set_trace()
+
         # hyp.yseq, scores あたりを使えばwhisperルールを適用できそう。
         # k = {"decoder","length_bonus"}
         # scores = {'decoder': tensor([[-14.5565, -11.8180, -14.7602,  ..., -13.4792, -12.8389, -14.1823]], device='cuda:0'), 'length_bonus': tensor([[1., 1., 1.,  ..., 1., 1., 1.]], device='cuda:0')}
@@ -426,13 +426,30 @@ class BatchBeamSearch(BeamSearch):
 
         # add ended hypotheses to a final list, and removed them from current hypotheses
         # (this will be a probmlem, number of hyps < beam)
-        is_eos = (
-            running_hyps.yseq[torch.arange(n_batch), running_hyps.length - 1]
-            == self.eos
-        )
-        for b in torch.nonzero(is_eos, as_tuple=False).view(-1):
-            hyp = self._select(running_hyps, b)
-            if i >= minlen:
-                ended_hyps.append(hyp)
-        remained_ids = torch.nonzero(is_eos == 0, as_tuple=False).view(-1).cpu()
+
+        if not(self.hyp_include_cont):
+            is_eos = (
+                running_hyps.yseq[torch.arange(n_batch), running_hyps.length - 1]
+                == self.eos
+            )
+            for b in torch.nonzero(is_eos, as_tuple=False).view(-1):
+                hyp = self._select(running_hyps, b)
+                if i >= minlen:
+                    ended_hyps.append(hyp)
+            remained_ids = torch.nonzero(is_eos == 0, as_tuple=False).view(-1).cpu()
+        else:
+            is_eos = (
+                running_hyps.yseq[torch.arange(n_batch), running_hyps.length - 1]
+                == self.eos
+            )
+            is_cont = (
+                running_hyps.yseq[torch.arange(n_batch), running_hyps.length - 1]
+                == 50255
+            )
+            is_eos_cont = torch.logical_or(is_eos, is_cont)
+            for b in torch.nonzero(is_eos_cont, as_tuple=False).view(-1):
+                hyp = self._select(running_hyps, b)
+                if i >= minlen:
+                    ended_hyps.append(hyp)
+            remained_ids = torch.nonzero(is_eos_cont == 0, as_tuple=False).view(-1).cpu()
         return self._batch_select(running_hyps, remained_ids)
