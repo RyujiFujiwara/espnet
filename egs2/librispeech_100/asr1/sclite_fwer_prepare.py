@@ -24,7 +24,7 @@ with open(input_ref, "r", encoding="utf-8") as ref_file, \
         if mask_Length > 0:
             ref_result = " ".join(ref_words[mask_Length:])  # 最初のmask_Length単語を除外
         else:
-            ref_result = ref_words[-1] if ref_words else ""  # 最後の単語または空文字列
+            ref_result = " ".join(ref_words) if ref_words else ""  # 最後の単語または空文字列
         ref_out.write(ref_result + "\n")
 
         # hyp.txtの処理
@@ -32,7 +32,7 @@ with open(input_ref, "r", encoding="utf-8") as ref_file, \
         if mask_Length > 0:
             hyp_result = " ".join(hyp_words[mask_Length:])  # 最初のmask_Length単語を除外
         else:
-            hyp_result = hyp_words[-1] if hyp_words else ""  # 最後の単語または空文字列
+            hyp_result = " ".join(hyp_words[:]) if hyp_words else ""  # 最後の単語または空文字列
         hyp_out.write(hyp_result + "\n")
 
 print(f"Processing complete. Results saved in '{output_ref}' and '{output_hyp}'.")
