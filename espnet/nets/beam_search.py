@@ -458,20 +458,7 @@ class BeamSearch(torch.nn.Module):
             logger.debug("position " + str(i))
             # /mnt/kiso-qnap2/fujiwara/B4/espnet/espnet/nets/batch_beam_search.py へと飛ぶ。(継承先)
             best = self.search(running_hyps, x, pre_x=pre_x)
-            # N-best search results are in "best"
-            # best = BatchHypothesis(yseq=tensor([[50258, 50259, 50359, 50363, 26562],
-            # [50258, 50259, 50359, 50363, 22058],
-            # [50258, 50259, 50359, 50363,  2221],
-            # [50258, 50259, 50359, 50363,  1713],
-            # [50258, 50259, 50359, 50363,  4735],
-            # [50258, 50259, 50359, 50363, 33660],
-            # [50258, 50259, 50359, 50363,   275],
-            # [50258, 50259, 50359, 50363,   307],
-            # [50258, 50259, 50359, 50363,   220],
-            # [50258, 50259, 50359, 50363,  4505]], device='cuda:0'), score=tensor([-0.6440, -4.5309, -4.9147, -6.1628, -7.5863, -7.8870, -7.9142, -7.9220,
-            # -8.4321, -8.4568]), length=tensor([5, 5, 5, 5, 5, 5, 5, 5, 5, 5]), scores={'decoder': tensor([-0.1440, -4.0309, -4.4147, -5.6628, -7.0863, -7.3870, -7.4142, -7.4220,
-            # -7.9321, -7.9568]), 'length_bonus': tensor([1., 1., 1., 1., 1., 1., 1., 1., 1., 1.])}, states={'decoder': [None, None, None, None, None, None, None, None, None, None], 'length_bonus': [None, None, None, None, None, None, None, None, None, None]}, hs=[])
-            
+              
             # post process of one iteration
             running_hyps = self.post_process(
                 i, maxlen, minlen, maxlenratio, best, ended_hyps

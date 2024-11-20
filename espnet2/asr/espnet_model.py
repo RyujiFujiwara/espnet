@@ -594,10 +594,8 @@ class ESPnetASRModel(AbsESPnetModel):
                     ys_out_pad[i,rand_values+primtextmask-1:] = self.ignore_id
                     ys_out_pad[i,:rand_values-1] = self.ignore_id
                     ys_out_pad[i,rand_values+1] = 50255
-
-
-        # 結果をテンソルに変換
-        ys_in_lens = torch.cat(ys_in_rand_lens)
+            # 結果をテンソルに変換
+            ys_in_lens = torch.cat(ys_in_rand_lens)
 
         # 1. Forward decoder
         decoder_out, _ = self.decoder(

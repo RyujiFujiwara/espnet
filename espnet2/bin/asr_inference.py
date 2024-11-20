@@ -569,17 +569,29 @@ class Speech2Text:
             if isinstance(enc, tuple): # Whisper : False
                 intermediate_outs = enc[1]
                 enc = enc[0]
-            assert len(enc) == 1, len(enc)    
-
-            # addition code
-            if self.primtextmask > len(text.tolist()):
-                self.primtextmask = len(text.tolist())
+            assert len(enc) == 1, len(enc)
 
             if self.primtextmask:
-                self.beam_search.set_hyp_primer(list(self.converter.tokenizer.sot_sequence_including_notimestamps) + text.tolist()[:-1*self.primtextmask])
+                mask_token = 0
+                word = 0
+                text_list = text.tolist()
+                idx = len(text_list) - 1
+
+                # transform from "mask_word_number"(self.primtextmask) to "mask_token_number"(mask_token)
+                while 0 <= idx and word < self.primtextmask:
+                    if self.converter.ids2tokens(text_list[idx])[0] == 'Ġ':
+                        word += 1
+                    mask_token += 1
+                    idx -= 1
+
+                if mask_token > len(text_list): # not over "mask_token"
+                    mask_token = len(text_list)
+
+                self.beam_search.set_hyp_primer(list(self.converter.tokenizer.sot_sequence_including_notimestamps) + text_list[:-1*mask_token])
+
                 enc[0] = torch.full_like(enc[0], 0)
 
-            # c. Passed the encoder result and the beam search (Whisper)
+            # c. Passed the encoder result and the beam search
             results = self._decode_single_sample(enc[0])
 
             # Encoder intermediate CTC predictions
@@ -963,8 +975,15 @@ def inference(
                     ibest_writer["token_int"][key] = " ".join(map(str, token_int))
                     ibest_writer["score"][key] = str(hyp.score)
 
-                    if text is not None:
-                        ibest_writer["text"][key] = text
+                    if hyp_include_cont: # show <eos> or <cont>
+                        if text is not None:
+                            if hyp.yseq[-1] == 50255:
+                                ibest_writer["text"][key] = text + " <cont>"
+                            else:
+                                ibest_writer["text"][key] = text + " <eos>"
+                    else:
+                        if text is not None:
+                            ibest_writer["text"][key] = text
 
                 # Write intermediate predictions to
                 # encoder_interctc_layer<layer_idx>.txt

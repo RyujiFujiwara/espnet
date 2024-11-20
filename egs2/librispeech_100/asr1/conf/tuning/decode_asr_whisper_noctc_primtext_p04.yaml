@@ -1,8 +1,0 @@
-beam_size: 20
-ctc_weight: 0.0
-lm_weight: 0.0
-maxlenratio: -200.0 # (-)0.3 or -400.0
-minlenratio: 0.0
-penalty: 0.59 # 0.0 (0.3~0.5?)
-primtextmask: 2 # input text for decoder
-hyp_include_cont: true # add <cont> for inference

@@ -1,14 +1,16 @@
+import os
+
 # パスの設定
-input_ref = "./exp/asr_train_asr_whisper_medium_decselfatten_finetune_part_predict_raw_en_whisper_multilingual_sp/decode_asr_whisper_noctc_primtext_asr_model_valid.acc.ave/test_clean/score_wer/ref.trn"
-input_hyp = "./exp/asr_train_asr_whisper_medium_decselfatten_finetune_part_predict_raw_en_whisper_multilingual_sp/decode_asr_whisper_noctc_primtext_asr_model_valid.acc.ave/test_clean/score_wer/hyp.trn"
-output_ref = "./exp/asr_train_asr_whisper_medium_decselfatten_finetune_part_predict_raw_en_whisper_multilingual_sp/decode_asr_whisper_noctc_primtext_asr_model_valid.acc.ave/test_clean/score_wer/ref_fwer.trn"
-output_hyp = "./exp/asr_train_asr_whisper_medium_decselfatten_finetune_part_predict_raw_en_whisper_multilingual_sp/decode_asr_whisper_noctc_primtext_asr_model_valid.acc.ave/test_clean/score_wer/hyp_fwer.trn"
+_scoredir="./exp/asr_train_asr_whisper_medium_decselfatten_finetune_part_predict_raw_en_whisper_multilingual_sp/decode_asr_whisper_noctc_primtext_asr_model_valid.acc.ave/test_clean/score_wer"
+N_mask = 2 # マスクする単語数の設定(FWER算出対象)
 
-# マスクする単語数の設定
-N_mask = 2
+input_ref = os.path.join(_scoredir,"ref.trn")
+input_hyp = os.path.join(_scoredir,"hyp.trn")
+output_ref = os.path.join(_scoredir,"ref_fwer.trn")
+output_hyp = os.path.join(_scoredir,"hyp_fwer.trn")
+
 N = N_mask + 1 # 話者IDを含める
-
-mask_Length = 0 # マスクする単語列の長さ
+mask_Length = 0 # マスクする単語列の長さの初期化
 
 # ファイルを開いて処理
 with open(input_ref, "r", encoding="utf-8") as ref_file, \

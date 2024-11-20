@@ -72,7 +72,7 @@ class OpenAIWhisperTokenizer(AbsTokenizer):
             self.tokenizer = whisper.tokenizer.get_tokenizer(
                 multilingual=True, language=self.language, task=self.task
             )
-            if added_tokens_txt is not None:
+            if added_tokens_txt is not None: # False
                 _added_tokens = []
                 with open(added_tokens_txt) as f:
                     lines = f.readlines()

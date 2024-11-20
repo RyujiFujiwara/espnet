@@ -9,9 +9,10 @@ train_set="train_clean_100"
 valid_set="dev"
 test_sets="test_clean"
 
-asr_config=conf/tuning/train_asr_whisper_medium_decselfatten_finetune_part_predict_3.yaml
-inference_config=conf/tuning/decode_asr_whisper_noctc_primtext.yaml
-# inference_config=conf/tuning/decode_asr_whisper_noctc_primtext_p04.yaml
+asr_config=conf/tuning/train_asr_whisper_medium_decselfatten_finetune_part_predict.yaml
+# inference_config=conf/tuning/decode_asr_whisper_noctc_primtext.yaml
+inference_config=conf/tuning/decode_asr_whisper_noctc_primtext_minlen.yaml
+
 
 lm_config=conf/train_lm_transformer.yaml
 use_lm=false
@@ -24,7 +25,7 @@ speed_perturb_factors="0.9 1.0 1.1"
 ./asr.sh \
     --nj 8 \
     --gpu_inference true \
-    --inference_nj 1 \
+    --inference_nj 2 \
     --lang en \
     --token_type whisper_multilingual \
     --feats_normalize "" \
