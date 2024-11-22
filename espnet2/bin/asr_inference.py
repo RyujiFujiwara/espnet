@@ -687,7 +687,6 @@ class Speech2Text:
                         if hasattr(module, "setup_step"):
                             module.setup_step()
 
-            import pdb; pdb.set_trace()
             # ここでbeam_search.pyへ。
             if not(self.minwords):
                 nbest_hyps = self.beam_search(

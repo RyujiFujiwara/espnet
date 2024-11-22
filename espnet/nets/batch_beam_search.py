@@ -437,16 +437,19 @@ class BatchBeamSearch(BeamSearch):
                 running_hyps.yseq[torch.arange(n_batch), running_hyps.length - 1]
                 == self.eos
             )
+            if minwords:
+                wordlength = []
+                for b_idx in range(n_batch):
+                    b_tokens = converter.ids2tokens(running_hyps.yseq[b_idx])
+                    wordlength.append(sum(1 for token in b_tokens if token[0] == 'Ġ')) # obtain wordlength using space
+                wordlength = torch.tensor(wordlength, device=running_hyps.yseq.device)
+                is_minwords = (wordlength >= (prewords + minwords))
+                is_eos = torch.logical_and(is_eos, is_minwords)
+
             for b in torch.nonzero(is_eos, as_tuple=False).view(-1):
                 hyp = self._select(running_hyps, b)
                 if i >= minlen:
-                    if not(minwords):
-                        ended_hyps.append(hyp)
-                    else:
-                        # import pdb; pdb.set_trace()
-                        # cur_tokens = converter.ids2tokens(hyp.yseq[0])
-                        # curwords = sum(1 for token in pre_tokens if token[0] == 'Ġ')
-                        ended_hyps.append(hyp)
+                    ended_hyps.append(hyp)
             remained_ids = torch.nonzero(is_eos == 0, as_tuple=False).view(-1).cpu()
         else:
             is_eos = (
