@@ -26,7 +26,7 @@ speed_perturb_factors="0.9 1.0 1.1"
 ./asr.sh \
     --nj 8 \
     --gpu_inference true \
-    --inference_nj 2 \
+    --inference_nj 1 \
     --lang en \
     --token_type whisper_multilingual \
     --feats_normalize "" \

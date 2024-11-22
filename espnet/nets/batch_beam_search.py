@@ -379,11 +379,14 @@ class BatchBeamSearch(BeamSearch):
         maxlenratio: float,
         running_hyps: BatchHypothesis,
         ended_hyps: List[Hypothesis],
+        minwords: int = 0,
     ) -> BatchHypothesis:
         """Perform post-processing of beam search iterations.
 
         Args:
             i (int): The length of hypothesis tokens.
+            minlen (int): The minimum length of tokens in beam search.
+            minwords (int): The minimum length of words in beam search.
             maxlen (int): The maximum length of tokens in beam search.
             maxlenratio (int): The maximum length ratio in beam search.
             running_hyps (BatchHypothesis): The running hypotheses in beam search.
@@ -435,7 +438,10 @@ class BatchBeamSearch(BeamSearch):
             for b in torch.nonzero(is_eos, as_tuple=False).view(-1):
                 hyp = self._select(running_hyps, b)
                 if i >= minlen:
-                    ended_hyps.append(hyp)
+                    if not(minwords):
+                        ended_hyps.append(hyp)
+                    else:
+                        ended_hyps.append(hyp)
             remained_ids = torch.nonzero(is_eos == 0, as_tuple=False).view(-1).cpu()
         else:
             is_eos = (

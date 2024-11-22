@@ -403,6 +403,8 @@ class BeamSearch(torch.nn.Module):
         x: torch.Tensor,
         maxlenratio: float = 0.0,
         minlenratio: float = 0.0,
+        minwords: int = 0,
+        converter = None,
         pre_x: torch.Tensor = None,
     ) -> List[Hypothesis]:
         """Perform beam search.
@@ -417,6 +419,7 @@ class BeamSearch(torch.nn.Module):
             minlenratio (float): Input length ratio to obtain min output length.
                 If minlenratio<0.0, its absolute value is interpreted
                 as a constant min output length.
+            minwords (int): Input length to obtain min output length of word. (Not token)
             pre_x (torch.Tensor): Encoded speech feature for sequential attn (T, D)
                 Sequential attn computes attn first on pre_x then on x,
                 thereby attending to two sources in sequence.
@@ -448,6 +451,11 @@ class BeamSearch(torch.nn.Module):
         running_hyps = self.init_hyp(x if pre_x is None else pre_x)
         ended_hyps = []
 
+        import pdb; pdb.set_trace()
+
+        preseq = running_hyps.yseq[0]
+        prewords = [seq for seq in preseq]
+
         # text = text.to('cuda:0')
         # new = torch.cat((running_hyps.yseq[0],text), dim=0)
         # new = torch.unsqueeze(new,0)
@@ -457,13 +465,20 @@ class BeamSearch(torch.nn.Module):
         for i in range(maxlen):      
             logger.debug("position " + str(i))
             # /mnt/kiso-qnap2/fujiwara/B4/espnet/espnet/nets/batch_beam_search.py へと飛ぶ。(継承先)
+            # 次のトークンの生起確率を計算 ＆ 上位をbestに格納
             best = self.search(running_hyps, x, pre_x=pre_x)
               
             # post process of one iteration
-            running_hyps = self.post_process(
-                i, maxlen, minlen, maxlenratio, best, ended_hyps
-            )
-
+            # beam_searchの枝の終了判定 (最後が<eos>なら終了)
+            if not(minwords):
+                running_hyps = self.post_process(
+                    i, maxlen, minlen, maxlenratio, best, ended_hyps
+                )
+            else:
+                running_hyps = self.post_process(
+                    i, maxlen, minlen, minwords, maxlenratio, best, ended_hyps
+                )
+                
             # end detection
             if maxlenratio == 0.0 and end_detect([h.asdict() for h in ended_hyps], i):
                 logger.info(f"end detected at {i}")
@@ -615,6 +630,8 @@ def beam_search(
     token_list: List[str] = None,
     maxlenratio: float = 0.0,
     minlenratio: float = 0.0,
+    minwords: int = 0,
+    converter = None,
     pre_beam_ratio: float = 1.5,
     pre_beam_score_key: str = "full",
 ) -> list:
@@ -654,5 +671,5 @@ def beam_search(
         sos=sos,
         eos=eos,
         token_list=token_list,
-    ).forward(x=x, maxlenratio=maxlenratio, minlenratio=minlenratio)
+    ).forward(x=x, maxlenratio=maxlenratio, minlenratio=minlenratio, minwords=minwords, converter=converter)
     return [h.asdict() for h in ret]
