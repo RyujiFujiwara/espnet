@@ -379,7 +379,9 @@ class BatchBeamSearch(BeamSearch):
         maxlenratio: float,
         running_hyps: BatchHypothesis,
         ended_hyps: List[Hypothesis],
-        minwords: int = 0,
+        minwords: int = 0, # limit minimum word length
+        prewords: int = 0, # input word length
+        converter = None,
     ) -> BatchHypothesis:
         """Perform post-processing of beam search iterations.
 
@@ -441,6 +443,9 @@ class BatchBeamSearch(BeamSearch):
                     if not(minwords):
                         ended_hyps.append(hyp)
                     else:
+                        # import pdb; pdb.set_trace()
+                        # cur_tokens = converter.ids2tokens(hyp.yseq[0])
+                        # curwords = sum(1 for token in pre_tokens if token[0] == 'Ġ')
                         ended_hyps.append(hyp)
             remained_ids = torch.nonzero(is_eos == 0, as_tuple=False).view(-1).cpu()
         else:

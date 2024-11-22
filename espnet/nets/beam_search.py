@@ -453,8 +453,8 @@ class BeamSearch(torch.nn.Module):
 
         import pdb; pdb.set_trace()
 
-        preseq = running_hyps.yseq[0]
-        prewords = [seq for seq in preseq]
+        pre_tokens = converter.ids2tokens(running_hyps.yseq[0])
+        prewords = sum(1 for token in pre_tokens if token[0] == 'Ġ')
 
         # text = text.to('cuda:0')
         # new = torch.cat((running_hyps.yseq[0],text), dim=0)
@@ -476,7 +476,7 @@ class BeamSearch(torch.nn.Module):
                 )
             else:
                 running_hyps = self.post_process(
-                    i, maxlen, minlen, minwords, maxlenratio, best, ended_hyps
+                    i, maxlen, minlen, maxlenratio, best, ended_hyps, minwords, prewords, converter,
                 )
                 
             # end detection
