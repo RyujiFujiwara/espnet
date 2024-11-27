@@ -12,8 +12,7 @@ valid_set="dev"
 test_sets="test_clean test_other dev_clean dev_other"
 
 asr_config=conf/tuning/train_asr_whisper_medium_nofinetune.yaml
-# inference_config=conf/tuning/decode_asr_whisper_noctc_primtext.yaml
-inference_config=conf/tuning/decode_asr_whisper_noctc_primtext_atleast.yaml
+inference_config=conf/tuning/decode_asr_whisper_noctc_primtext.yaml
 
 lm_config=conf/train_lm_transformer.yaml
 use_lm=false

@@ -5,5 +5,5 @@ _scoredir="./exp/asr_train_asr_whisper_medium_decselfatten_finetune_raw_en_whisp
 
 sclite \
     -r "${_scoredir}/ref_fwer.trn" trn \
-    -h "${_scoredir}/hyp_fwer.trn" trn \
-    -i rm -o all stdout > "${_scoredir}/result_fwer.trn"
+    -h "${_scoredir}/hyp_fwer_limit.trn" trn \
+    -i rm -o all stdout > "${_scoredir}/result_fwer_limit.trn"
