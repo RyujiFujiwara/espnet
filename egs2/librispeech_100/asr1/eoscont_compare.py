@@ -1,6 +1,6 @@
 import os
 
-_scoredir = "./exp/asr_train_asr_whisper_medium_decselfatten_finetune_raw_en_whisper_multilingual_sp/decode_asr_whisper_noctc_primtext_asr_model_valid.acc.ave/test_clean/score_wer"
+_scoredir = "./exp/asr_train_asr_whisper_medium_decselfatten_finetune_raw_en_whisper_multilingual_sp/decode_asr_whisper_noctc_primtext1_tmp_asr_model_valid.acc.ave/test_clean/score_wer"
 
 input_ref = os.path.join(_scoredir,"ref_eoscont.txt")
 input_hyp = os.path.join(_scoredir,"hyp_eoscont.txt")
@@ -32,7 +32,14 @@ print(f"ref = cont , hyp = eos : {ref_cont_hyp_eos}")
 print(f"ref = eos , hyp = cont : {ref_eos_hyp_cont}")
 print(f"ref = eos , hyp = eos : {ref_eos_hyp_eos}")
 
+# 文中&文末をランダムに振り分けたタスク
 # ref = cont , hyp = cont : 1019
 # ref = cont , hyp = eos : 1361
 # ref = eos , hyp = cont : 90
 # ref = eos , hyp = eos : 150
+
+# 文末のみのタスク
+# ref = cont , hyp = cont : 0
+# ref = cont , hyp = eos : 0
+# ref = eos , hyp = cont : 725
+# ref = eos , hyp = eos : 1895

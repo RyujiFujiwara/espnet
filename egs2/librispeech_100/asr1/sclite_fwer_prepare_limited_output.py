@@ -4,8 +4,8 @@
 import os
 
 # パスの設定
-_scoredir="./exp/asr_train_asr_whisper_medium_decselfatten_finetune_raw_en_whisper_multilingual_sp/decode_asr_whisper_noctc_primtext_asr_model_valid.acc.ave/test_clean/score_wer"
-N = 2 # 限定する単語数の設定(FWER算出対象)
+_scoredir="./exp/asr_train_asr_whisper_medium_decselfatten_finetune_raw_en_whisper_multilingual_sp/decode_asr_whisper_noctc_primtext1_asr_model_valid.acc.ave/test_clean/score_wer"
+N = 1 # 限定する単語数の設定(FWER算出対象)
 
 input_hyp = os.path.join(_scoredir,"hyp_fwer.trn")
 output_hyp = os.path.join(_scoredir,"hyp_fwer_limit.trn")
