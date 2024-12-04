@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Stage 12の推論用
+
 import argparse
 import logging
 import sys
@@ -93,6 +93,7 @@ class Speech2Text:
         device: str = "cpu",
         maxlenratio: float = 0.0,
         minlenratio: float = 0.0,
+        minwords: int = 0,
         batch_size: int = 1,
         dtype: str = "float32",
         beam_size: int = 20,
@@ -496,6 +497,7 @@ class Speech2Text:
         self.hugging_face_decoder_conf = hugging_face_decoder_conf
         self.maxlenratio = maxlenratio
         self.minlenratio = minlenratio
+        self.minwords = minwords
         self.device = device
         self.dtype = dtype
         self.nbest = nbest
@@ -684,12 +686,16 @@ class Speech2Text:
                     for module in self.beam_search.nn_dict.decoder.modules():
                         if hasattr(module, "setup_step"):
                             module.setup_step()
+
             # ここでbeam_search.pyへ。
-            nbest_hyps = self.beam_search(
-                x=enc, maxlenratio=self.maxlenratio, minlenratio=self.minlenratio
-            )
-
-
+            if not(self.minwords):
+                nbest_hyps = self.beam_search(
+                    x=enc, maxlenratio=self.maxlenratio, minlenratio=self.minlenratio
+                )
+            else:
+                nbest_hyps = self.beam_search(
+                    x=enc, maxlenratio=self.maxlenratio, minlenratio=self.minlenratio, minwords=self.minwords, converter=self.converter
+                )
 
         nbest_hyps = nbest_hyps[: self.nbest]
 
@@ -754,6 +760,7 @@ def inference(
     output_dir: str,
     maxlenratio: float,
     minlenratio: float,
+    minwords: int,
     batch_size: int,
     dtype: str,
     beam_size: int,
@@ -834,6 +841,7 @@ def inference(
         device=device,
         maxlenratio=maxlenratio,
         minlenratio=minlenratio,
+        minwords=minwords,
         dtype=dtype,
         beam_size=beam_size,
         ctc_weight=ctc_weight,
@@ -1154,6 +1162,12 @@ def get_parser():
         type=float,
         default=0.0,
         help="Input length ratio to obtain min output length",
+    )
+    group.add_argument(
+        "--minwords",
+        type=int,
+        default=0,
+        help="Input length to obtain min output words (Not tokens)",
     )
     group.add_argument(
         "--ctc_weight",
