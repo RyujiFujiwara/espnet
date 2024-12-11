@@ -1,12 +1,12 @@
 import os
 import re
 
-_scoredir = "./exp/asr_train_asr_whisper_large_decselfatten_finetune_raw_en_whisper_multilingual_sp/decode_asr_whisper_noctc_primtoken2mask_tmp_asr_model_valid.acc.ave/test_clean/score_wer"
+_scoredir = "/mnt/kiso-qnap/fujiwara/B4/main/espnet/egs2/librispeech_100/asr1/exp/asr_train_asr_whisper_large_decselfatten_finetune_raw_en_whisper_multilingual_sp/primtoken1mask_randommask_penalty0.8/test_clean/score_wer"
 N_mask = 1 # マスクする単語数の設定(FWER算出対象)
-fulltext = os.path.join(_scoredir,"fulltext_token.trn") # フルのテキストを準備する必要がある
+fulltext = os.path.join(_scoredir,"fulltext_token.trn") # フルのトークン化されたテキストを準備する必要がある
 
-input_ref = os.path.join(_scoredir,"ref.trn")
-input_hyp = os.path.join(_scoredir,"hyp.trn")
+input_ref = os.path.join(_scoredir,"ref_token.trn")
+input_hyp = os.path.join(_scoredir,"hyp_token.trn")
 output_ref = os.path.join(_scoredir,"ref_eoscont.txt")
 output_hyp = os.path.join(_scoredir,"hyp_eoscont.txt")
 
@@ -23,8 +23,7 @@ with open(fulltext, "r", encoding="utf-8") as full_file, \
     # 3つのファイルを同時に1行ずつ読み込む
     for text_line, ref_line, hyp_line in zip(full_file, ref_file, hyp_file):
         # 単語に分割
-        full_words = re.split(r"[ '\n]", text_line)
-        full_words = [ele for ele in full_words if ele != '']
+        full_words = re.split(r"[ ']", text_line)
         ref_words = ref_line.strip().split()
         hyp_words = hyp_line.strip().split()
 

@@ -122,6 +122,7 @@ class Speech2Text:
         max_seq_len: int = 5,
         max_mask_parallel: int = -1,
         primtextmask: int = 0,
+        primtokenmask: int = 0,
         hyp_include_cont: bool = False,
     ):
 
@@ -505,6 +506,7 @@ class Speech2Text:
         self.multi_asr = multi_asr
 
         self.primtextmask = primtextmask
+        self.primtokenmask = primtokenmask
         self.hyp_include_cont = hyp_include_cont
 
     # Union[torch.Tensor, np.ndarray]は、torch.Tensor型でもnp.ndarray型でも、どっちでもよいの意味
@@ -590,7 +592,13 @@ class Speech2Text:
                     mask_token = len(text_list)
 
                 self.beam_search.set_hyp_primer(list(self.converter.tokenizer.sot_sequence_including_notimestamps) + text_list[:-1*mask_token])
+                enc[0] = torch.full_like(enc[0], 0)
 
+            if self.primtokenmask:
+                if self.primtokenmask > len(text.tolist()):
+                    self.primtokenmask = len(text.tolist())
+    
+                self.beam_search.set_hyp_primer(list(self.converter.tokenizer.sot_sequence_including_notimestamps) + text.tolist()[:-1*self.primtokenmask])
                 enc[0] = torch.full_like(enc[0], 0)
 
             # c. Passed the encoder result and the beam search
@@ -806,6 +814,7 @@ def inference(
     max_seq_len: int,
     max_mask_parallel: int,
     primtextmask: int,
+    primtokenmask: int,
     hyp_include_cont: bool,
 ):
     if batch_size > 1:
@@ -868,6 +877,7 @@ def inference(
         max_seq_len=max_seq_len,
         max_mask_parallel=max_mask_parallel,
         primtextmask=primtextmask,
+        primtokenmask=primtokenmask,
         hyp_include_cont=hyp_include_cont,
     )
     speech2text = Speech2Text.from_pretrained(
@@ -1267,7 +1277,8 @@ def get_parser():
         + "If you got OOM error, try to decrease this value."
         + "Default to -1, which means always predict all masks simultaneously.",
     )
-    group.add_argument("--primtextmask", type=int, default=0, help="Input text for decoder (the number of mask)")
+    group.add_argument("--primtextmask", type=int, default=0, help="Input text for decoder (Indicate the number of mask words)")
+    group.add_argument("--primtokenmask", type=int, default=0, help="Input text for decoder (Indicate the number of mask tokens)")
     group.add_argument("--hyp_include_cont", type=bool, default=False, help="whether cont label include hypothesis")
     return parser
 

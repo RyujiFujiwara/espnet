@@ -1,12 +1,14 @@
+# FWER算出の準備に使う。
+
 import os
 
-_scoredir = "./exp/asr_train_asr_whisper_medium_decselfatten_finetune_raw_en_whisper_multilingual_sp/decode_asr_whisper_noctc_primtext1_asr_model_valid.acc.ave/test_clean/score_wer"
+_scoredir = "/mnt/kiso-qnap/fujiwara/B4/main/espnet/egs2/librispeech_100/asr1/exp/asr_train_asr_whisper_large_decselfatten_finetune_raw_en_whisper_multilingual_sp/primtoken1mask_randommask_penalty0.8/test_clean/score_wer"
 N_mask = 1 # マスクする単語数の設定(FWER算出対象)
 
-input_ref = os.path.join(_scoredir,"ref.trn")
-input_hyp = os.path.join(_scoredir,"hyp.trn")
-output_ref = os.path.join(_scoredir,"ref_fwer.trn")
-output_hyp = os.path.join(_scoredir,"hyp_fwer.trn")
+input_ref = os.path.join(_scoredir,"ref_token.trn")
+input_hyp = os.path.join(_scoredir,"hyp_token.trn")
+output_ref = os.path.join(_scoredir,"ref_fter.trn")
+output_hyp = os.path.join(_scoredir,"hyp_fter.trn")
 
 N = N_mask + 1 # 話者IDを含める
 mask_Length = 0 # マスクする単語列の長さの初期化

@@ -259,6 +259,9 @@ class IterableESPnetDataset(IterableDataset):
             if self.preprocess is not None:
                 data = self.preprocess(self.preprocess_prefix + uid, data)
 
+            # print(data)
+            # {'text': array([  675, 19737,   220, 15456,   576,   312, 22654,   337,  6148,                                                   220, 33886,  2600,   293, 21005,   293, 25267,  2640, 11811,                                                            293,  4046,  5839,  1756,  3755,   220,  1353,   312,  6632,                                                           1493,   484,   294,   220,   392,   618,  8532,   292,  7693]), 'speech': array([0.00033569, 0.00030518, 0.00036621, ..., 0.00210571, 0.00210571,                                                                                              0.00158691], dtype=float32)}
+
             # 4. Force data-precision
             for name in data:
                 value = data[name]
@@ -275,7 +278,7 @@ class IterableESPnetDataset(IterableDataset):
                     value = value.astype(self.int_dtype)
                 else:
                     raise NotImplementedError(f"Not supported dtype: {value.dtype}")
-                data[name] = value
+                data[name] = value 
 
             yield uid, data
 
