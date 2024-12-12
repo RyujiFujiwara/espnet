@@ -404,6 +404,7 @@ class BeamSearch(torch.nn.Module):
         maxlenratio: float = 0.0,
         minlenratio: float = 0.0,
         minwords: int = 0,
+        primtokenmask: int = 0,
         converter = None,
         pre_x: torch.Tensor = None,
     ) -> List[Hypothesis]:
@@ -455,6 +456,8 @@ class BeamSearch(torch.nn.Module):
             pre_tokens = converter.ids2tokens(running_hyps.yseq[0])
             prewords = sum(1 for token in pre_tokens if token[0] == 'Ġ')
 
+        less_than_primtoken = 0
+
         # text = text.to('cuda:0')
         # new = torch.cat((running_hyps.yseq[0],text), dim=0)
         # new = torch.unsqueeze(new,0)
@@ -488,6 +491,10 @@ class BeamSearch(torch.nn.Module):
             else:
                 logger.debug(f"remained hypotheses: {len(running_hyps)}")
 
+            if primtokenmask:
+                if i == primtokenmask + 1:
+                    less_than_primtoken = len(ended_hyps)
+
         if self.normalize_length:
             # Note (Jinchuan): -1 since hyp starts with <sos> and
             # initially has score of 0.0
@@ -520,7 +527,9 @@ class BeamSearch(torch.nn.Module):
         logger.info(f"total log probability: {best.score:.2f}")
         logger.info(f"normalized log probability: {best.score / len(best.yseq):.2f}")
         logger.info(f"total number of ended hypotheses: {len(nbest_hyps)}")
-
+        if primtokenmask:
+            logger.info(f"total number of ended hypotheses less than {primtokenmask} token: {less_than_primtoken}")
+        
         # self.token_listには、全ての種類のトークンが含まれている(約50000の要素を持つ配列)
         # best.yseq[1:-1]には、推論結果の要素番号が格納されている。
         # つまり、best.yseq[1:-1]の要素番号に対応したトークンをself.token_listから順に取り出している。

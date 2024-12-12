@@ -1,7 +1,7 @@
-beam_size: 20
+beam_size: 50
 ctc_weight: 0.0
 lm_weight: 0.0
 maxlenratio: -200.0 # (-)0.3 or -400.0
 minlenratio: 0.0
 penalty: 0.0 # 0.0 (0.3~0.5?)
-hyp_include_cont: true
+# hyp_include_cont: true

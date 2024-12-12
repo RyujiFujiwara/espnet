@@ -1662,7 +1662,7 @@ if [ ${stage} -le 13 ] && [ ${stop_stage} -ge 13 ] && ! [[ " ${skip_stages} " =~
             elif [ "${_tok_type}" = "bpe" ]; then
                 _type="ter"
                 _opts+="--bpemodel ${bpemodel} "
-
+                
             else
                 log "Error: unsupported token type ${_tok_type}"
             fi
@@ -1679,6 +1679,9 @@ if [ ${stage} -le 13 ] && [ ${stop_stage} -ge 13 ] && ! [[ " ${skip_stages} " =~
 
                 # Tokenize text to ${_tok_type} level
                 # ここでref.trnファイルを生成。wer,cer算出における正解データにあたる。
+                # _data = dump/raw/test_clean
+                # _dir = exp/asr_train_asr_whisper_large_decselfatten_finetune_raw_en_whisper_multilingual_sp/decode_asr_whisper_noctc_primtoken1mask_asr_model_valid.acc.ave/test_clean
+                # ref_txt =  text
                 paste \
                     <(<"${_data}/${ref_txt}" \
                         ${python} -m espnet2.bin.tokenize_text  \

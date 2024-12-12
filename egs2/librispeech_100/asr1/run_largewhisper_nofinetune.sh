@@ -9,9 +9,8 @@ train_set="train_clean_100"
 valid_set="dev"
 test_sets="test_clean"
 
-asr_config=conf/tuning/train_asr_whisper_large_decselfatten_finetune.yaml
-inference_config=conf/tuning/decode_asr_whisper_noctc_primtoken1mask_tmp.yaml
-
+asr_config=conf/tuning/train_asr_whisper_large_nofinetune.yaml
+inference_config=conf/tuning/decode_asr_whisper_noctc.yaml
 
 lm_config=conf/train_lm_transformer.yaml
 use_lm=false

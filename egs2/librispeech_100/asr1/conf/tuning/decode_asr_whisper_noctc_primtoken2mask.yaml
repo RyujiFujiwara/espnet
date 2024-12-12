@@ -4,5 +4,4 @@ lm_weight: 0.0
 maxlenratio: -50.0 # 0.3 or -400.0
 minlenratio: 0.0
 penalty: -0.5
-primtextmask: 1 # input "words" for decoder and mask encoder output
-nbest: 5
+primtokenmask: 2 # input text for decoder
