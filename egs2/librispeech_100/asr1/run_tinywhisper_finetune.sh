@@ -10,7 +10,7 @@ valid_set="dev"
 test_sets="test_clean"
 
 asr_config=conf/tuning/train_asr_whisper_tiny_lora_finetune.yaml
-inference_config=conf/tuning/decode_asr_whisper_noctc_beam10.yaml
+inference_config=conf/tuning/decode_asr_whisper_noctc_beam10_5best.yaml
 # inference_config=conf/tuning/decode_asr_whisper_noctc_primtext_minlen.yaml
 
 lm_config=conf/train_lm_transformer.yaml

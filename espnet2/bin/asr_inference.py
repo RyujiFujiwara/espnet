@@ -696,7 +696,11 @@ class Speech2Text:
                             module.setup_step()
 
             # ここでbeam_search.pyへ。
-            if not(self.minwords):
+            if self.primtokenmask:
+                nbest_hyps = self.beam_search(
+                    x=enc, maxlenratio=self.maxlenratio, minlenratio=self.minlenratio, primtokenmask=self.primtokenmask
+                )
+            elif not(self.minwords):
                 nbest_hyps = self.beam_search(
                     x=enc, maxlenratio=self.maxlenratio, minlenratio=self.minlenratio
                 )
