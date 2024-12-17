@@ -1,0 +1,25 @@
+<FWER算出>
+sclite_fwer_prepare.py → sclite_fwer.sh
+
+<FWERの算出をN単語に限定>
+sclite_fwer_prepare.py → sclite_fwer_prepare_limited_output.py → sclite_fwer_limited.sh
+
+<FTER>
+1. whisper_tokendevide.pyで正解データと推論データを両方トークン化
+2. sclite_fwer_prepare.py → sclite_fwer.sh
+
+<FTERの算出をN単語に限定>
+1. whisper_tokendevide.pyで正解データと推論データを両方トークン化
+2. sclite_fwer_prepare.py → sclite_fwer_prepare_limited_output.py → sclite_fwer_limited.sh
+
+<発話終了と発話継続判定>
+1. whisper_tokendevide_forfulltext.pyにて正解データをトークン化
+(2. whisper_tokendevide.pyで正解データと推論データを両方トークン化) 
+3. check_eoscont_intoken.pyで発話終了と発話継続の判別
+4. eoscont_compare.pyにて正解データと推論データを比較
+
+<nbest-FTERの算出(N単語限定)>
+1. whisper_tokendevide.pyで正解データと推論データを両方トークン化
+2. nbest_select.pyにて、1で生成した正解データに最も近い推論データを「hyp_nbest」に格納
+3. hyp_nbestを用いて、sclite_fwer_prepare.py → sclite_fwer.sh
+(3. sclite_fwer_prepare.py → sclite_fwer_prepare_limited_output.py → sclite_fwer_limited.sh)

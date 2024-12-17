@@ -196,10 +196,11 @@ class BatchBeamSearch(BeamSearch):
             elif "decoder" in k and pre_x is not None:
                 scores[k], states[k] = d.batch_score(hyp.yseq, hyp.states[k], x, pre_x)
             else:
-                scores[k], states[k] = d.batch_score(hyp.yseq, hyp.states[k], x)
+                scores[k], states[k] = d.batch_score(hyp.yseq, hyp.states[k], x) # (ビームサーチにおける現シーケンス, ビームサーチにおける現スコア, 音声特徴量)が引数
 
         if self.return_hs:
             return hs, scores, states
+        # {'decoder': None, 'length_bonus': None}
         return scores, states
 
     def score_partial(
@@ -278,7 +279,7 @@ class BatchBeamSearch(BeamSearch):
             BatchHypothesis: Best sorted hypotheses
 
         """
-        n_batch = len(running_hyps)
+        n_batch = len(running_hyps) # ビームサーチで現在残っている仮説の量（ビームサイズ - 発話終了仮説の数）
         part_ids = None  # no pre-beam
         # batch scoring
         weighted_scores = torch.zeros(
@@ -292,7 +293,7 @@ class BatchBeamSearch(BeamSearch):
                     pre_x.expand(n_batch, *pre_x.shape) if pre_x is not None else None
                 ),
             )
-        else:
+        else: # x.expand(n_batch, *x.shape) では、各仮説に対して音声特徴量を与えるために拡張を行っている。
             scores, states = self.score_full(
                 running_hyps,
                 x.expand(n_batch, *x.shape),
@@ -336,7 +337,7 @@ class BatchBeamSearch(BeamSearch):
             full_new_token_id,
             part_prev_hyp_id,
             part_new_token_id,
-        ) in zip(*self.batch_beam(weighted_scores, part_ids)):
+        ) in zip(*self.batch_beam(weighted_scores, part_ids)): # ここでtopのk個のみが選出される 
             prev_hyp = prev_hyps[full_prev_hyp_id]
             if self.return_hs:
                 new_hs = prev_hyp.hs + [hs[full_prev_hyp_id].squeeze(0)]

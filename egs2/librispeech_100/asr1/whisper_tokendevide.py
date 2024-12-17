@@ -3,7 +3,10 @@
 from espnet2.text.whisper_tokenizer import OpenAIWhisperTokenizer
 import os
 
-_scoredir = "/mnt/kiso-qnap/fujiwara/B4/main/espnet/egs2/librispeech_100/asr1/exp/asr_train_asr_whisper_large_decselfatten_finetune_raw_en_whisper_multilingual_sp/primtoken1mask_randommask_penalty0.8/test_clean/score_wer"
+## SETTING
+_scoredir = "/mnt/kiso-qnap/fujiwara/B4/main/espnet/egs2/librispeech_100/asr1/exp/asr_train_asr_whisper_large_decselfatten_finetune_raw_en_whisper_multilingual_sp/primtoken1mask_randommask_penalty0.6_5best/test_clean/score_wer"
+##
+
 
 input_ref = os.path.join(_scoredir,"ref.trn")
 input_hyp = os.path.join(_scoredir,"hyp.trn")

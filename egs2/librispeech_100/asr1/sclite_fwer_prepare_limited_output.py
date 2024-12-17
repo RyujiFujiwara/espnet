@@ -4,7 +4,7 @@
 import os
 
 # パスの設定
-_scoredir="/mnt/kiso-qnap/fujiwara/B4/main/espnet/egs2/librispeech_100/asr1/exp/asr_train_asr_whisper_large_decselfatten_finetune_raw_en_whisper_multilingual_sp/primtoken1mask_randommask_penalty0.8/test_clean/score_wer"
+_scoredir="/mnt/kiso-qnap/fujiwara/B4/main/espnet/egs2/librispeech_100/asr1/exp/asr_train_asr_whisper_large_decselfatten_finetune_raw_en_whisper_multilingual_sp/primtoken1mask_randommask_penalty0.6_5best/test_clean/score_wer"
 N = 1 # 限定する単語数の設定(FWER算出対象)
 
 input_hyp = os.path.join(_scoredir,"hyp_fter.trn")

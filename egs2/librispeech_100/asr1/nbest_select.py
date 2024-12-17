@@ -1,21 +1,30 @@
 import os
 from jiwer import wer
 
-## (sclite_fwer_prepare.py (→ sclite_fwer_prepare_output_limited.py)) → nbest_select.py
+## (whisper_tokendevide_forfulltext.py) → nbest_select.py
+
+## SETTING (example)
+# Nbest = 5
+# data_type = "token" # "text" or "token"
+# reference_file = "/mnt/kiso-qnap/fujiwara/B4/main/espnet/egs2/librispeech_100/asr1/LibriFullText/test_clean/fulltext_tokenmask1_devided.trn"
+# candidate_path = "/mnt/kiso-qnap/fujiwara/B4/main/espnet/egs2/librispeech_100/asr1/exp/asr_train_asr_whisper_large_decselfatten_finetune_raw_en_whisper_multilingual_sp/primtoken1mask_randommask_penalty0.6_5best/test_clean/logdir/output.1"
+# output_path = '/mnt/kiso-qnap/fujiwara/B4/main/espnet/egs2/librispeech_100/asr1/exp/asr_train_asr_whisper_large_decselfatten_finetune_raw_en_whisper_multilingual_sp/primtoken1mask_randommask_penalty0.6_5best/test_clean/score_wer'
+
+# for_fwer_fter = 1 # DEFAULT: 0 (calculate only future words or tokens. Indicate number of this.)
+# limit = True # False: calculate FWER/FTER , Ture: limit only "for_fwer_fter" words/tokens
+##
 
 ## SETTING
 Nbest = 5
 data_type = "token" # "text" or "token"
-reference_file = "/mnt/kiso-qnap/fujiwara/B4/main/espnet/egs2/librispeech_100/asr1/LibriFullText/test_clean/fulltext_tokenmask1_devided.trn"
-candidate_path = "/mnt/kiso-qnap/fujiwara/B4/main/espnet/egs2/librispeech_100/asr1/exp/asr_train_asr_whisper_large_decselfatten_finetune_raw_en_whisper_multilingual_sp/primtoken1mask_randommask_penalty0.6_5best/test_clean/logdir/output.1"
-output_path = '/mnt/kiso-qnap/fujiwara/B4/main/espnet/egs2/librispeech_100/asr1/exp/asr_train_asr_whisper_large_decselfatten_finetune_raw_en_whisper_multilingual_sp/primtoken1mask_randommask_penalty0.6_5best/test_clean/score_wer'
-
-for_fwer_fter = 1 # DEFAULT: 0 (calculate only future words or tokens)
+experiment_path = "/mnt/kiso-qnap/fujiwara/B4/main/espnet/egs2/librispeech_100/asr1/exp/asr_train_asr_whisper_large_decselfatten_finetune_raw_en_whisper_multilingual_sp/primtoken1mask_randommask_penalty0.6_5best/test_clean"
+for_fwer_fter = 1 # DEFAULT: 0 (calculate only future words or tokens. Indicate number of this.)
 limit = True # False: calculate FWER/FTER , Ture: limit only "for_fwer_fter" words/tokens
 ##
 
-candidate_files = [os.path.join(candidate_path,f"{i}best_recog/{data_type}") for i in range(1,Nbest+1)]
-output_file = os.path.join(output_path,"hyp_nbest.trn")
+reference_file = os.path.join(experiment_path,"score_wer/ref_token.trn")
+candidate_files = [os.path.join(experiment_path,f"logdir/output.1/{i}best_recog/{data_type}") for i in range(1,Nbest+1)]
+output_file = os.path.join(experiment_path,"score_wer/hyp_nbest.trn")
 
 if not os.path.isfile(reference_file):
     raise FileNotFoundError(f"Input file not found: {reference_file}")
@@ -39,7 +48,8 @@ def process_files(reference_file, candidate_files, output_file):
         # 正解ファイルの各行に対して処理
         for i, ref_line in enumerate(reference_lines):
             ref_line = ref_line.strip()
-            ref_line = " ".join(ref_line.split()[:-1])
+            ID = ref_line.split()[-1]
+            ref_line = " ".join(ref_line.split()[:-1]) # 話者IDを除く
             best_wer = float('inf')
             best_sentence = None
 
@@ -50,7 +60,6 @@ def process_files(reference_file, candidate_files, output_file):
                     candidate_line = " ".join(candidate_line.split()[1:])
 
                     if for_fwer_fter:
-                        # OPPOSITE
                         ref_line_f = " ".join(ref_line.split()[-1*(for_fwer_fter):])
                         ref_length = len(ref_line.split()[:-1*(for_fwer_fter)])
                         candidate_line_f = " ".join(candidate_line.split()[ref_length:])
@@ -67,6 +76,6 @@ def process_files(reference_file, candidate_files, output_file):
 
             # 最良の文を出力ファイルに書き込む
             if best_sentence is not None:
-                out.write(best_sentence + '\n')
+                out.write(best_sentence + " " + ID +'\n')
 
 process_files(reference_file, candidate_files, output_file)
