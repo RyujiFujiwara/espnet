@@ -23,6 +23,7 @@ class BatchHypothesis(NamedTuple):
     scores: Dict[str, torch.Tensor] = dict()  # values: (batch,)
     states: Dict[str, Dict] = dict()
     hs: List[torch.Tensor] = []  # (batch, maxlen, adim)
+    score_list: List = [] 
 
     def __len__(self) -> int:
         """Return a batch size."""
@@ -51,6 +52,7 @@ class BatchBeamSearch(BeamSearch):
             scores={k: torch.tensor([h.scores[k] for h in hyps]) for k in self.scorers},
             states={k: [h.states[k] for h in hyps] for k in self.scorers},
             hs=hs,
+            score_list=[h.score_list for h in hyps]
         )
 
     def _batch_select(self, hyps: BatchHypothesis, ids: List[int]) -> BatchHypothesis:
@@ -69,6 +71,7 @@ class BatchBeamSearch(BeamSearch):
                 for k, v in hyps.states.items()
             },
             hs=hs,
+            score_list=[hyps.score_list[i] for i in ids.tolist()]
         )
 
     def _select(self, hyps: BatchHypothesis, i: int) -> Hypothesis:
@@ -80,6 +83,7 @@ class BatchBeamSearch(BeamSearch):
                 k: self.scorers[k].select_state(v, i) for k, v in hyps.states.items()
             },
             hs=hyps.hs[i] if self.return_hs else [],
+            score_list=hyps.score_list[i]
         )
 
     def unbatchfy(self, batch_hyps: BatchHypothesis) -> List[Hypothesis]:
@@ -94,6 +98,7 @@ class BatchBeamSearch(BeamSearch):
                     for k, v in self.scorers.items()
                 },
                 hs=batch_hyps.hs[i] if self.return_hs else [],
+                score_list=batch_hyps.score_list[i]
             )
             for i in range(len(batch_hyps.length))
         ]
@@ -154,6 +159,7 @@ class BatchBeamSearch(BeamSearch):
                     states=init_states,
                     hs=[],
                     yseq=torch.tensor(primer, device=x.device),
+                    score_list=[]
                 )
             ]
         )
@@ -337,7 +343,7 @@ class BatchBeamSearch(BeamSearch):
             full_new_token_id,
             part_prev_hyp_id,
             part_new_token_id,
-        ) in zip(*self.batch_beam(weighted_scores, part_ids)): # ここでtopのk個のみが選出される 
+        ) in zip(*self.batch_beam(weighted_scores, part_ids)): # ここでtopのk個のみが選出される
             prev_hyp = prev_hyps[full_prev_hyp_id]
             if self.return_hs:
                 new_hs = prev_hyp.hs + [hs[full_prev_hyp_id].squeeze(0)]
@@ -368,6 +374,7 @@ class BatchBeamSearch(BeamSearch):
                         part_new_token_id,
                     ),
                     hs=new_hs,
+                    score_list=prev_hyp.score_list + [weighted_scores[full_prev_hyp_id, full_new_token_id].tolist()]
                 )
             )
         return self.batchfy(best_hyps)
@@ -467,4 +474,4 @@ class BatchBeamSearch(BeamSearch):
                 if i >= minlen:
                     ended_hyps.append(hyp)
             remained_ids = torch.nonzero(is_eos_cont == 0, as_tuple=False).view(-1).cpu()
-        return self._batch_select(running_hyps, remained_ids)
+        return self._batch_select(running_hyps, remained_ids) # remained_ids = tensor([ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]) <eos>が終端でない仮説のid

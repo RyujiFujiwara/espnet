@@ -1,5 +1,6 @@
 from espnet2.text.whisper_tokenizer import OpenAIWhisperTokenizer
 from espnet2.text.whisper_token_id_converter import OpenAIWhisperTokenIDConverter
+import random
 
 tokenizer =  OpenAIWhisperTokenizer(
                 model_type= 'whisper_multilingual',

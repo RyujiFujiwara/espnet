@@ -3,10 +3,10 @@
 import os
 
 ## SETTING
-_scoredir = "/mnt/kiso-qnap/fujiwara/B4/main/espnet/egs2/librispeech_100/asr1/exp/asr_train_asr_whisper_large_decselfatten_finetune_raw_en_whisper_multilingual_sp/primtoken1mask_randommask_penalty0.6_5best/test_clean/score_wer"
+_scoredir = "/mnt/kiso-qnap/fujiwara/B4/main/espnet/egs2/librispeech_100/asr1/exp/asr_train_asr_whisper_large_decselfatten_finetune_raw_en_whisper_multilingual_sp/decode_asr_whisper_noctc_primtext_5best_asr_model_valid.acc.ave/test_clean/score_wer"
 N_mask = 1 # マスクする単語数の設定(FWER,FTER算出対象)
-input_ref = os.path.join(_scoredir,"ref_token.trn")
-input_hyp = os.path.join(_scoredir,"hyp_5best.trn") # hyp_token.trn or hyp_nbest.trn
+input_ref = os.path.join(_scoredir,"refprob_token.trn")
+input_hyp = os.path.join(_scoredir,"1best_hypprob_token.trn") # hyp_token.trn or hyp_nbest.trn
 output_ref = os.path.join(_scoredir,"ref_fter.trn")
 output_hyp = os.path.join(_scoredir,"hyp_fter.trn")
 ##

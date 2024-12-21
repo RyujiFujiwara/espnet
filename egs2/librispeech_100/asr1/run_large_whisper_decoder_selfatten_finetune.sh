@@ -10,7 +10,7 @@ valid_set="dev"
 test_sets="test_clean"
 
 asr_config=conf/tuning/train_asr_whisper_large_decselfatten_finetune.yaml
-inference_config=conf/tuning/decode_asr_whisper_noctc_primtoken1mask_tmp.yaml
+inference_config=conf/tuning/decode_asr_whisper_noctc_primtext_5best.yaml
 
 
 lm_config=conf/train_lm_transformer.yaml

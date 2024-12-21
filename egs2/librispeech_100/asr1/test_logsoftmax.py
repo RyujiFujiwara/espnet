@@ -1,8 +1,11 @@
 import torch
+import math
 
-y = torch.ones(3,3,5,requires_grad=True)
-y = torch.log_softmax(y, dim=1)
-y = torch.exp(y)
-print(torch.empty(0))
+y = torch.tensor([0.5,0.4,0.6])
+y = torch.log(y)
+y_s = torch.exp(y)
+y_t = [math.exp(x) for x in y]
 
-print(y)
+print(y_s)
+print(y_t)
+print(math.prod(y_s))
