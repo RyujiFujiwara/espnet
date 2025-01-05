@@ -13,6 +13,10 @@ sclite_fwer_prepare.py → sclite_fwer_prepare_limited_output.py → sclite_fwer
 2. sclite_fwer_prepare.py → sclite_fwer_prepare_limited_output.py → sclite_fwer_limited.sh
 
 <発話終了と発話継続判定>
+1. check_eoscont.pyで発話終了と発話継続の判別
+2. eoscont_compare.pyにて正解データと推論データを比較
+
+<発話終了と発話継続判定(トークン単位)>
 1. whisper_tokendevide_forfulltext.pyにて正解データをトークン化
 (2. whisper_tokendevide.pyで正解データと推論データを両方トークン化) 
 3. check_eoscont_intoken.pyで発話終了と発話継続の判別
