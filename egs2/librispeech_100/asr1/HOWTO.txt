@@ -27,3 +27,10 @@ sclite_fwer_prepare.py → sclite_fwer_prepare_limited_output.py → sclite_fwer
 2. nbest_select.pyにて、1で生成した正解データに最も近い推論データを「hyp_nbest」に格納
 3. hyp_nbestを用いて、sclite_fwer_prepare.py → sclite_fwer.sh
 (3. sclite_fwer_prepare.py → sclite_fwer_prepare_limited_output.py → sclite_fwer_limited.sh)
+
+<probabilityによる閾値とFTER>
+1. whisper_tokendevide.pyで正解データと推論データを両方トークン化
+2. nbest_select.pyにて、1で生成した正解データに最も近い推論データを「hyp_nbest」に格納
+3. count_probability.pyにてprob.trnファイルを生成する。
+4. proband_refhyp.pyにてprob.trnファイルを基にscliteへ渡す文を制限する。
+5. 4で生成したファイルを用いて、sclite_fwer_prepare.py → sclite_fwer.sh

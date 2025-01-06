@@ -17,14 +17,15 @@ from jiwer import wer
 ## SETTING
 Nbest = 5
 data_type = "token" # "text" or "token"
-experiment_path = "/mnt/kiso-qnap/fujiwara/B4/main/espnet/egs2/librispeech_100/asr1/exp/asr_train_asr_whisper_large_decselfatten_finetune_raw_en_whisper_multilingual_sp/primtoken1mask_randommask_penalty0.6_5best/test_clean"
+experiment_path = "/mnt/kiso-qnap/fujiwara/B4/main/espnet/egs2/librispeech_100/asr1/exp/asr_train_asr_whisper_large_decselfatten_finetune_raw_en_whisper_multilingual_sp/decode_asr_whisper_noctc_primtext_5best_asr_model_valid.acc.ave/test_clean"
 for_fwer_fter = 1 # DEFAULT: 0 (calculate only future words or tokens. Indicate number of this.)
-limit = True # False: calculate FWER/FTER , Ture: limit only "for_fwer_fter" words/tokens
+limit = False # False: calculate FWER/FTER , Ture: limit only "for_fwer_fter" words/tokens
 ##
 
-reference_file = os.path.join(experiment_path,"score_wer/ref_token.trn")
+if data_type == "token":
+    reference_file = os.path.join(experiment_path,"score_wer/ref_token.trn")
 candidate_files = [os.path.join(experiment_path,f"logdir/output.1/{i}best_recog/{data_type}") for i in range(1,Nbest+1)]
-output_file = os.path.join(experiment_path,"score_wer/hyp_nbest.trn")
+output_file = os.path.join(experiment_path,f"score_wer/hyp_{Nbest}best.trn")
 
 if not os.path.isfile(reference_file):
     raise FileNotFoundError(f"Input file not found: {reference_file}")

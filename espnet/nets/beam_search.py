@@ -10,6 +10,9 @@ from typing import Optional
 from espnet.nets.e2e_asr_common import end_detect
 from espnet.nets.scorer_interface import PartialScorerInterface, ScorerInterface
 
+import copy
+import math
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,6 +25,7 @@ class Hypothesis(NamedTuple):
     states: Dict[str, Any] = dict()
     # dec hidden state corresponding to yseq, used for searchable hidden ints
     hs: List[torch.Tensor] = []
+    score_list: List = []
 
     def asdict(self) -> dict:
         """Convert data to JSON-friendly dict."""
@@ -398,6 +402,26 @@ class BeamSearch(torch.nn.Module):
             ]
         return best_hyps
 
+    # scorelist = [log(p1), log(p1) + log(p2), log(p1) + log(p2) + log(p3), ...]
+    # → [log(p1), log(p2), log(p3)] → [p1, p2, p3] → (p1 * p2 * p3) add for probs
+    def sum_probability(
+        self,
+        ended_hyps: List[Hypothesis],
+    ) -> float:
+        if len(ended_hyps) == 0:
+            return 0.0
+        else:
+            probs = 0.0
+            for hyp in ended_hyps:
+                scores = copy.deepcopy(hyp.score_list)
+                j = len(scores)
+                while 1 < j:
+                    scores[j-1] -= scores[j-2]
+                    j -= 1
+                exp_scores = [math.exp(x) for x in scores]
+                probs += math.prod(exp_scores)
+            return probs
+
     def forward(
         self,
         x: torch.Tensor,
@@ -449,8 +473,9 @@ class BeamSearch(torch.nn.Module):
         logger.info("max output length: " + str(maxlen))
         logger.info("min output length: " + str(minlen))
         # main loop of prefix search
-        running_hyps = self.init_hyp(x if pre_x is None else pre_x)
+        running_hyps = self.init_hyp(x if pre_x is None else pre_x) # batch_beam
         ended_hyps = []
+        ended_hyps_tmp = []
 
         if minwords:
             pre_tokens = converter.ids2tokens(running_hyps.yseq[0])
@@ -464,7 +489,7 @@ class BeamSearch(torch.nn.Module):
 
         # ex.) running_hyps = BatchHypothesis(yseq=tensor([[50258, 50259, 50359, 50363]], device='cuda:0'), score=tensor([0.]), length=tensor([4]), scores={'decoder': tensor([0.]), 'length_bonus': tensor([0.])}, states={'decoder': [None], 'length_bonus': [None]}, hs=[])
         # このforループで一つずつ推定結果を出力している。
-        for i in range(maxlen):      
+        for i in range(maxlen):
             logger.debug("position " + str(i))
             # /mnt/kiso-qnap2/fujiwara/B4/espnet/espnet/nets/batch_beam_search.py へと飛ぶ。(継承先)
             # 次のトークンの生起確率を計算 ＆ 上位をbestに格納
@@ -492,8 +517,11 @@ class BeamSearch(torch.nn.Module):
                 logger.debug(f"remained hypotheses: {len(running_hyps)}")
 
             if primtokenmask:
-                if i == primtokenmask + 1:
+                if i == primtokenmask:
                     less_than_primtoken = len(ended_hyps)
+                    ended_hyps_tmp = copy.deepcopy(ended_hyps)
+
+        probability = self.sum_probability(ended_hyps_tmp)
 
         if self.normalize_length:
             # Note (Jinchuan): -1 since hyp starts with <sos> and
@@ -502,7 +530,13 @@ class BeamSearch(torch.nn.Module):
                 ended_hyps, key=lambda x: x.score / (len(x.yseq) - 1), reverse=True
             )
         else:
+            nbest_hyps = sorted(ended_hyps_tmp, key=lambda x: x.score, reverse=True)
+        
+        if len(nbest_hyps) == 0:
             nbest_hyps = sorted(ended_hyps, key=lambda x: x.score, reverse=True)
+
+        while len(nbest_hyps) < 5:
+            nbest_hyps += [nbest_hyps[-1]]
 
         # check the number of hypotheses reaching to eos
         if len(nbest_hyps) == 0:
@@ -529,6 +563,7 @@ class BeamSearch(torch.nn.Module):
         logger.info(f"total number of ended hypotheses: {len(nbest_hyps)}")
         if primtokenmask:
             logger.info(f"total number of ended hypotheses less than {primtokenmask} token: {less_than_primtoken}")
+            logger.info(f"and probability : {probability}")
         
         # self.token_listには、全ての種類のトークンが含まれている(約50000の要素を持つ配列)
         # best.yseq[1:-1]には、推論結果の要素番号が格納されている。
