@@ -2,9 +2,9 @@ import os
 import re
 
 ## SETTING 
-_scoredir = "/mnt/kiso-qnap/fujiwara/B4/main/espnet/egs2/librispeech_100/asr1/exp/asr_train_asr_whisper_large_decselfatten_finetune_raw_en_whisper_multilingual_sp/decode_asr_whisper_noctc_primword_tmp_asr_model_valid.acc.ave/test_clean/score_wer"
+_scoredir = "/mnt/kiso-qnap/fujiwara/B4/main/espnet/egs2/librispeech_100/asr1/exp/asr_train_asr_whisper_large_nofinetune_raw_en_whisper_multilingual_sp/decode_asr_whisper_noctc_primword_tmp_asr_model_valid.acc.ave/dev_clean/score_wer"
 N_mask = 1 # マスクする単語数の設定(FWER算出対象)
-fulltext = "/mnt/kiso-qnap/fujiwara/B4/main/espnet/egs2/librispeech_100/asr1/LibriFullText/dev_other/fulltext.trn" # フルのテキストを準備する必要がある
+fulltext = "/mnt/kiso-qnap/fujiwara/B4/main/espnet/egs2/librispeech_100/asr1/LibriFullText/dev_clean/fulltext.trn" # フルのテキストを準備する必要がある
 ##
 
 input_ref = os.path.join(_scoredir,"ref.trn")
