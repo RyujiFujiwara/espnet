@@ -422,6 +422,24 @@ class BeamSearch(torch.nn.Module):
                 probs += math.prod(exp_scores)
             return probs
 
+    def select_end_in_Nword(
+        self,
+        ended_hyps: List[Hypothesis],
+    ) -> float:
+        if len(ended_hyps) == 0:
+            return 0.0
+        else:
+            probs = 0.0
+            for hyp in ended_hyps:
+                scores = copy.deepcopy(hyp.score_list)
+                j = len(scores)
+                while 1 < j:
+                    scores[j-1] -= scores[j-2]
+                    j -= 1
+                exp_scores = [math.exp(x) for x in scores]
+                probs += math.prod(exp_scores)
+            return probs
+
     def forward(
         self,
         x: torch.Tensor,
@@ -529,8 +547,10 @@ class BeamSearch(torch.nn.Module):
             nbest_hyps = sorted(
                 ended_hyps, key=lambda x: x.score / (len(x.yseq) - 1), reverse=True
             )
-        else:
+        elif primtokenmask:
             nbest_hyps = sorted(ended_hyps_tmp, key=lambda x: x.score, reverse=True)
+        else:
+            nbest_hyps = sorted(ended_hyps, key=lambda x: x.score, reverse=True)
         
         if len(nbest_hyps) == 0:
             nbest_hyps = sorted(ended_hyps, key=lambda x: x.score, reverse=True)
