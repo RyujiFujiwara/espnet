@@ -123,6 +123,7 @@ class Speech2Text:
         max_mask_parallel: int = -1,
         primtextmask: int = 0,
         primtokenmask: int = 0,
+        input_text_onebyone: bool = False,
         hyp_include_cont: bool = False,
     ):
 
@@ -507,6 +508,7 @@ class Speech2Text:
 
         self.primtextmask = primtextmask
         self.primtokenmask = primtokenmask
+        self.input_text_onebyone = input_text_onebyone
         self.hyp_include_cont = hyp_include_cont
 
     # Union[torch.Tensor, np.ndarray]は、torch.Tensor型でもnp.ndarray型でも、どっちでもよいの意味
@@ -601,8 +603,11 @@ class Speech2Text:
                 self.beam_search.set_hyp_primer(list(self.converter.tokenizer.sot_sequence_including_notimestamps) + text.tolist()[:-1*self.primtokenmask])
                 enc[0] = torch.full_like(enc[0], 0)
 
-            # c. Passed the encoder result and the beam search
-            results = self._decode_single_sample(enc[0])
+            if self.input_text_onebyone:
+                results = self._decode_single_sample(enc[0], text)
+            else:
+                # c. Passed the encoder result and the beam search
+                results = self._decode_single_sample(enc[0])
 
             # Encoder intermediate CTC predictions
             if intermediate_outs is not None: # Whisper : False
@@ -629,7 +634,7 @@ class Speech2Text:
         return res
 
     @typechecked
-    def _decode_single_sample(self, enc: torch.Tensor) -> ListOfHypothesis:
+    def _decode_single_sample(self, enc: torch.Tensor, text = None) -> ListOfHypothesis:
         if self.beam_search_transducer:
             logging.info("encoder output length: " + str(enc.shape[0]))
             nbest_hyps = self.beam_search_transducer(enc)
@@ -699,6 +704,14 @@ class Speech2Text:
             if self.primtokenmask:
                 nbest_hyps = self.beam_search(
                     x=enc, maxlenratio=self.maxlenratio, minlenratio=self.minlenratio, primtokenmask=self.primtokenmask
+                )
+            elif self.primtextmask:
+                nbest_hyps = self.beam_search(
+                    x=enc, maxlenratio=self.maxlenratio, minlenratio=self.minlenratio, primtextmask=self.primtextmask, converter=self.converter
+                )
+            elif self.input_text_onebyone:
+                nbest_hyps = self.beam_search(
+                    x=enc, maxlenratio=self.maxlenratio, minlenratio=self.minlenratio, converter=self.converter, text=text
                 )
             elif not(self.minwords):
                 nbest_hyps = self.beam_search(
@@ -819,6 +832,7 @@ def inference(
     max_mask_parallel: int,
     primtextmask: int,
     primtokenmask: int,
+    input_text_onebyone: bool,
     hyp_include_cont: bool,
 ):
     if batch_size > 1:
@@ -882,6 +896,7 @@ def inference(
         max_mask_parallel=max_mask_parallel,
         primtextmask=primtextmask,
         primtokenmask=primtokenmask,
+        input_text_onebyone=input_text_onebyone,
         hyp_include_cont=hyp_include_cont,
     )
     speech2text = Speech2Text.from_pretrained(
@@ -1283,6 +1298,7 @@ def get_parser():
     )
     group.add_argument("--primtextmask", type=int, default=0, help="Input text for decoder (Indicate the number of mask words)")
     group.add_argument("--primtokenmask", type=int, default=0, help="Input text for decoder (Indicate the number of mask tokens)")
+    group.add_argument("--input_text_onebyone", type=bool, default=False, help="Input text for decoder one by one, and check eos_or_cont")
     group.add_argument("--hyp_include_cont", type=bool, default=False, help="whether cont label include hypothesis")
     return parser
 

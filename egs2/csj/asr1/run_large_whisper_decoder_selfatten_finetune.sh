@@ -7,10 +7,10 @@ set -o pipefail
 
 train_set=train_nodup
 valid_set=train_dev
-test_sets="eval1 eval2 eval3"
+test_sets="eval1"
 
 asr_config=conf/tuning/train_asr_whisper_large_decselfatten_finetune.yaml
-inference_config=conf/tuning/decode_asr_whisper_noctc_primword_tmp.yaml
+inference_config=conf/tuning/decode_asr_whisper_noctc_primtoken.yaml
 
 
 lm_config=conf/train_lm_transformer.yaml
@@ -25,7 +25,7 @@ speed_perturb_factors="0.9 1.0 1.1"
     --nj 8 \
     --gpu_inference true \
     --inference_nj 1 \
-    --lang jp \
+    --lang ja \
     --token_type whisper_multilingual \
     --feats_normalize "" \
     --audio_format "wav" \

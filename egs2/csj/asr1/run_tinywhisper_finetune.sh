@@ -5,13 +5,12 @@ set -e
 set -u
 set -o pipefail
 
-train_set="train_clean_100"
-valid_set="dev"
-test_sets="test_clean test_other"
+train_set=train_nodup
+valid_set=train_dev
+test_sets="eval1 eval2 eval3"
 
-asr_config=conf/tuning/train_asr_whisper_large_decselfatten_finetune.yaml
-inference_config=conf/tuning/decode_asr_whisper_noctc_text_input_onebyone.yaml
-
+asr_config=conf/tuning/train_asr_whisper_tiny_finetune.yaml
+inference_config=conf/tuning/decode_asr_whisper_noctc_beam10.yaml
 
 lm_config=conf/train_lm_transformer.yaml
 use_lm=false
@@ -25,10 +24,10 @@ speed_perturb_factors="0.9 1.0 1.1"
     --nj 8 \
     --gpu_inference true \
     --inference_nj 1 \
-    --lang en \
+    --lang ja \
     --token_type whisper_multilingual \
     --feats_normalize "" \
-    --audio_format "flac.ark" \
+    --audio_format "wav" \
     --feats_type raw \
     --use_lm ${use_lm}                                 \
     --use_word_lm ${use_wordlm}                        \
@@ -40,10 +39,7 @@ speed_perturb_factors="0.9 1.0 1.1"
     --valid_set "${valid_set}"                         \
     --test_sets "${test_sets}"                         \
     --speed_perturb_factors "${speed_perturb_factors}" \
-    --asr_speech_fold_length 512 \
-    --asr_text_fold_length 150 \
-    --lm_fold_length 150 \
-    --lm_train_text "data/${train_set}/text" "$@"
+    --lm_train_text "data/train_nodev/text" "$@"
 
 # ./asr.sh \
 #     --nj 8 \                                                  The number of parallel jobs. 〇

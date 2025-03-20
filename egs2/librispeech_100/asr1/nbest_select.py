@@ -16,14 +16,16 @@ from jiwer import wer
 
 ## SETTING
 Nbest = 5
-data_type = "token" # "text" or "token"
-experiment_path = "/mnt/kiso-qnap/fujiwara/B4/main/espnet/egs2/librispeech_100/asr1/exp/asr_train_asr_whisper_large_decselfatten_finetune_raw_en_whisper_multilingual_sp/decode_asr_whisper_noctc_primtext_5best_asr_model_valid.acc.ave/test_clean"
+data_type = "text" # "text" or "token"
+experiment_path = "/mnt/kiso-qnap/fujiwara/B4/main/espnet/egs2/librispeech_100/asr1/exp/asr_train_asr_whisper_large_nofinetune_raw_en_whisper_multilingual_sp/decode_asr_whisper_noctc_primword_asr_model_valid.acc.ave/test_other"
 for_fwer_fter = 1 # DEFAULT: 0 (calculate only future words or tokens. Indicate number of this.)
 limit = False # False: calculate FWER/FTER , Ture: limit only "for_fwer_fter" words/tokens
 ##
 
 if data_type == "token":
     reference_file = os.path.join(experiment_path,"score_wer/ref_token.trn")
+else:
+    reference_file = os.path.join(experiment_path,"score_wer/ref.trn")
 candidate_files = [os.path.join(experiment_path,f"logdir/output.1/{i}best_recog/{data_type}") for i in range(1,Nbest+1)]
 output_file = os.path.join(experiment_path,f"score_wer/hyp_{Nbest}best.trn")
 

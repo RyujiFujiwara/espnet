@@ -1,0 +1,8 @@
+beam_size: 20
+ctc_weight: 0.0
+lm_weight: 0.0
+maxlenratio: -50.0 # 0.3 or -400.0
+minlenratio: 0.0
+penalty: 0.0
+input_text_onebyone: True
+nbest: 5

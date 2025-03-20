@@ -20,7 +20,7 @@ with open(input_hyp, "r", encoding="utf-8") as hyp_file, \
     for hyp_line in hyp_file:
         hyp_words = hyp_line.strip().split()  # 単語に分割
         if len(hyp_words) > N+1: # 話者ID含む
-            hyp_result = " ".join(hyp_words[:N])  # 最初のN単語と最後の単語を残す
+            hyp_result = " ".join(hyp_words[:N])  # 最初のN単語と最後の話者IDを残す
             hyp_result = hyp_result + " " + hyp_words[-1]
         else:
             hyp_result = " ".join(hyp_words[:]) if hyp_words else ""

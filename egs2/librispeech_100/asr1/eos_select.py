@@ -2,9 +2,9 @@ import codecs
 import os
 
 ## SETTING
-ref_hyp_dir = "/mnt/kiso-qnap/fujiwara/B4/main/espnet/egs2/librispeech_100/asr1/exp/asr_train_asr_whisper_large_nofinetune_raw_en_whisper_multilingual_sp/decode_asr_whisper_noctc_primword_tmp_asr_model_valid.acc.ave/dev_clean/score_wer"
+ref_hyp_dir = "/mnt/kiso-qnap/fujiwara/B4/main/espnet/egs2/librispeech_100/asr1/exp/asr_train_asr_whisper_large_decselfatten_finetune_raw_en_whisper_multilingual_sp/decode_asr_whisper_noctc_primword_asr_model_valid.acc.ave/test_clean/score_wer"
 ref_file = os.path.join(ref_hyp_dir,"ref.trn")
-hyp_file = os.path.join(ref_hyp_dir,"hyp.trn")
+hyp_file = os.path.join(ref_hyp_dir,"hyp_5best.trn")
 eos_cont_file = os.path.join(ref_hyp_dir,"hyp_eoscont.txt")
 output_reffile = os.path.join(ref_hyp_dir,"end_ref.trn")
 output_hypfile = os.path.join(ref_hyp_dir,"end_hyp.trn")
