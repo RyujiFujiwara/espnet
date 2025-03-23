@@ -520,7 +520,7 @@ class Speech2Text:
         List[ListOfHypothesis],
         Tuple[
             ListOfHypothesis,
-            Union[Dict[int, List[str]], None],
+            Union[Dict[int, List[str]], None, str],
         ],
     ]:
         """Inference
@@ -596,24 +596,34 @@ class Speech2Text:
                 self.beam_search.set_hyp_primer(list(self.converter.tokenizer.sot_sequence_including_notimestamps) + text_list[:-1*mask_token])
                 enc[0] = torch.full_like(enc[0], 0)
 
-            if self.primtokenmask:
+                input_token_ids = self.converter.ids2tokens(list(self.converter.tokenizer.sot_sequence_including_notimestamps) + text_list[:-1*mask_token])
+                input_text = self.tokenizer.tokens2text(input_token_ids)
+
+            elif self.primtokenmask:
                 if self.primtokenmask > len(text.tolist()):
                     self.primtokenmask = len(text.tolist())
     
                 self.beam_search.set_hyp_primer(list(self.converter.tokenizer.sot_sequence_including_notimestamps) + text.tolist()[:-1*self.primtokenmask])
                 enc[0] = torch.full_like(enc[0], 0)
 
+                input_token_ids = self.converter.ids2tokens(list(self.converter.tokenizer.sot_sequence_including_notimestamps) + text.tolist()[:-1*self.primtokenmask])
+                input_text = self.tokenizer.tokens2text(input_token_ids)
+            
+            else:
+                input_text = None
+
+            # c. Passed the encoder result and the beam search
             if self.input_text_onebyone:
                 results = self._decode_single_sample(enc[0], text)
             else:
-                # c. Passed the encoder result and the beam search
                 results = self._decode_single_sample(enc[0])
 
             # Encoder intermediate CTC predictions
             if intermediate_outs is not None: # Whisper : False
                 encoder_interctc_res = self._decode_interctc(intermediate_outs)
                 results = (results, encoder_interctc_res)
-        return results
+
+        return results, input_text
 
     @typechecked
     def _decode_interctc(
@@ -904,11 +914,10 @@ def inference(
         **speech2text_kwargs,
     )
 
-    # (Pdb) train_data_path_and_name_and_type
+    # train_data_path_and_name_and_type
     # [('dump/raw/test_clean/text', 'text', 'text')]
-    # (Pdb) data_path_and_name_and_type
+    # data_path_and_name_and_type
     # [('dump/raw/test_clean/wav.scp', 'speech', 'kaldi_ark')]
-    # import pdb; pdb.set_trace()
 
 
     # data_path_and_name_and_type = [('dump/raw/test_clean/wav.scp', 'speech', 'kaldi_ark')]
@@ -953,7 +962,7 @@ def inference(
             # 関数に**を使うと、辞書のキーが関数のキーワード引数名として解釈され、そのキーに対応する値が引数として関数に渡される。
 
             try:
-                results = speech2text(**batch)
+                results, input_text = speech2text(**batch)
             except TooShortUttError as e:
                 logging.warning(f"Utterance {keys} {e}")
                 hyp = Hypothesis(score=0.0, scores={}, states={}, yseq=[])
@@ -1021,6 +1030,8 @@ def inference(
                     else:
                         if text is not None:
                             ibest_writer["text"][key] = text
+                        if input_text is not None:
+                            ibest_writer["input_text"][key] = input_text
 
                 # Write intermediate predictions to
                 # encoder_interctc_layer<layer_idx>.txt
