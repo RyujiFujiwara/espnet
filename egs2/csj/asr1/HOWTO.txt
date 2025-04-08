@@ -1,0 +1,4 @@
+
+1.「nbest_select.py」にて、正解データに一番近い推論データを呼び出す。
+2.「sclite_fwer_prepare.py」にて、cerの算出対象のみを取り出す。
+3.「sclite_fcer.sh」にて、fcerを算出。

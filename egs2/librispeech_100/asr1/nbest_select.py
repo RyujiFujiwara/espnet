@@ -81,4 +81,5 @@ def process_files(reference_file, candidate_files, output_file):
             if best_sentence is not None:
                 out.write(best_sentence + " " + ID +'\n')
 
-process_files(reference_file, candidate_files, output_file)
+if __name__ == "__main__":
+    process_files(reference_file, candidate_files, output_file)

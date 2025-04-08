@@ -93,7 +93,6 @@ class Speech2Text:
         device: str = "cpu",
         maxlenratio: float = 0.0,
         minlenratio: float = 0.0,
-        minwords: int = 0,
         batch_size: int = 1,
         dtype: str = "float32",
         beam_size: int = 20,
@@ -124,6 +123,7 @@ class Speech2Text:
         primtextmask: int = 0,
         primtokenmask: int = 0,
         input_text_onebyone: bool = False,
+        judge_end_in_n_tokens: int = 0,
         hyp_include_cont: bool = False,
     ):
 
@@ -499,7 +499,6 @@ class Speech2Text:
         self.hugging_face_decoder_conf = hugging_face_decoder_conf
         self.maxlenratio = maxlenratio
         self.minlenratio = minlenratio
-        self.minwords = minwords
         self.device = device
         self.dtype = dtype
         self.nbest = nbest
@@ -509,6 +508,7 @@ class Speech2Text:
         self.primtextmask = primtextmask
         self.primtokenmask = primtokenmask
         self.input_text_onebyone = input_text_onebyone
+        self.judge_end_in_n_tokens = judge_end_in_n_tokens
         self.hyp_include_cont = hyp_include_cont
 
     # Union[torch.Tensor, np.ndarray]は、torch.Tensor型でもnp.ndarray型でも、どっちでもよいの意味
@@ -577,6 +577,9 @@ class Speech2Text:
                 enc = enc[0]
             assert len(enc) == 1, len(enc)
 
+            # DEFAULT
+            input_text = None
+
             if self.primtextmask:
                 mask_token = 0
                 word = 0
@@ -601,19 +604,19 @@ class Speech2Text:
 
             elif self.primtokenmask:
                 if self.primtokenmask > len(text.tolist()):
-                    self.primtokenmask = len(text.tolist())
+                    mask_token = len(text.tolist())
+                else:
+                    mask_token = self.primtokenmask
     
-                self.beam_search.set_hyp_primer(list(self.converter.tokenizer.sot_sequence_including_notimestamps) + text.tolist()[:-1*self.primtokenmask])
+                self.beam_search.set_hyp_primer(list(self.converter.tokenizer.sot_sequence_including_notimestamps) + text.tolist()[:-1*mask_token])
                 enc[0] = torch.full_like(enc[0], 0)
 
-                input_token_ids = self.converter.ids2tokens(list(self.converter.tokenizer.sot_sequence_including_notimestamps) + text.tolist()[:-1*self.primtokenmask])
+                input_token_ids = self.converter.ids2tokens(list(self.converter.tokenizer.sot_sequence_including_notimestamps) + text.tolist()[:-1*mask_token])
                 input_text = self.tokenizer.tokens2text(input_token_ids)
-            
-            else:
-                input_text = None
 
             # c. Passed the encoder result and the beam search
-            if self.input_text_onebyone:
+            if self.input_text_onebyone or self.judge_end_in_n_tokens:
+                enc[0] = torch.full_like(enc[0], 0)
                 results = self._decode_single_sample(enc[0], text)
             else:
                 results = self._decode_single_sample(enc[0])
@@ -721,15 +724,15 @@ class Speech2Text:
                 )
             elif self.input_text_onebyone:
                 nbest_hyps = self.beam_search(
-                    x=enc, maxlenratio=self.maxlenratio, minlenratio=self.minlenratio, converter=self.converter, text=text
+                    x=enc, maxlenratio=self.maxlenratio, minlenratio=self.minlenratio, converter=self.converter, text=text, unit="word"
                 )
-            elif not(self.minwords):
+            elif self.judge_end_in_n_tokens:
                 nbest_hyps = self.beam_search(
-                    x=enc, maxlenratio=self.maxlenratio, minlenratio=self.minlenratio
+                    x=enc, maxlenratio=self.maxlenratio, minlenratio=self.minlenratio, converter=self.converter, text=text, unit="token"
                 )
             else:
                 nbest_hyps = self.beam_search(
-                    x=enc, maxlenratio=self.maxlenratio, minlenratio=self.minlenratio, minwords=self.minwords, converter=self.converter
+                    x=enc, maxlenratio=self.maxlenratio, minlenratio=self.minlenratio
                 )
 
         nbest_hyps = nbest_hyps[: self.nbest]
@@ -795,7 +798,6 @@ def inference(
     output_dir: str,
     maxlenratio: float,
     minlenratio: float,
-    minwords: int,
     batch_size: int,
     dtype: str,
     beam_size: int,
@@ -843,6 +845,7 @@ def inference(
     primtextmask: int,
     primtokenmask: int,
     input_text_onebyone: bool,
+    judge_end_in_n_tokens: int,
     hyp_include_cont: bool,
 ):
     if batch_size > 1:
@@ -878,7 +881,6 @@ def inference(
         device=device,
         maxlenratio=maxlenratio,
         minlenratio=minlenratio,
-        minwords=minwords,
         dtype=dtype,
         beam_size=beam_size,
         ctc_weight=ctc_weight,
@@ -907,6 +909,7 @@ def inference(
         primtextmask=primtextmask,
         primtokenmask=primtokenmask,
         input_text_onebyone=input_text_onebyone,
+        judge_end_in_n_tokens=judge_end_in_n_tokens,
         hyp_include_cont=hyp_include_cont,
     )
     speech2text = Speech2Text.from_pretrained(
@@ -1204,12 +1207,6 @@ def get_parser():
         help="Input length ratio to obtain min output length",
     )
     group.add_argument(
-        "--minwords",
-        type=int,
-        default=0,
-        help="Input length to obtain min output words (Not tokens)",
-    )
-    group.add_argument(
         "--ctc_weight",
         type=float,
         default=0.5,
@@ -1310,6 +1307,7 @@ def get_parser():
     group.add_argument("--primtextmask", type=int, default=0, help="Input text for decoder (Indicate the number of mask words)")
     group.add_argument("--primtokenmask", type=int, default=0, help="Input text for decoder (Indicate the number of mask tokens)")
     group.add_argument("--input_text_onebyone", type=bool, default=False, help="Input text for decoder one by one, and check eos_or_cont")
+    group.add_argument("--judge_end_in_n_tokens", type=int, default=0, help="Input token for decoder one by one, and check eos_or_cont in N tokens")
     group.add_argument("--hyp_include_cont", type=bool, default=False, help="whether cont label include hypothesis")
     return parser
 

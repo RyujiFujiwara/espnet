@@ -423,6 +423,11 @@ class BeamSearch(torch.nn.Module):
                 probs += math.prod(exp_scores)
             return probs
 
+    # ex.)
+    # nbest_hyps = sorted(ended_hyps, key=lambda x: x.score, reverse=True)
+    # ended_hyps_first = self.select_end_in_nwords([nbest_hyps[0]], primtextmask, hyp_primer_length, converter)
+    # if len(ended_hyps_first) != 0:
+    #     nbest_hyps = self.select_end_in_nwords(nbest_hyps, primtextmask, hyp_primer_length, converter)
     def select_end_in_nwords(
         self,
         ended_hyps: List[Hypothesis],
@@ -465,11 +470,11 @@ class BeamSearch(torch.nn.Module):
         x: torch.Tensor,
         maxlenratio: float = 0.0,
         minlenratio: float = 0.0,
-        minwords: int = 0,
         primtokenmask: int = 0,
         primtextmask: int = 0,
         converter = None,
         text = None,
+        unit = None,
         pre_x: torch.Tensor = None,
     ) -> List[Hypothesis]:
         """Perform beam search.
@@ -484,7 +489,6 @@ class BeamSearch(torch.nn.Module):
             minlenratio (float): Input length ratio to obtain min output length.
                 If minlenratio<0.0, its absolute value is interpreted
                 as a constant min output length.
-            minwords (int): Input length to obtain min output length of word. (Not token)
             pre_x (torch.Tensor): Encoded speech feature for sequential attn (T, D)
                 Sequential attn computes attn first on pre_x then on x,
                 thereby attending to two sources in sequence.
@@ -515,9 +519,9 @@ class BeamSearch(torch.nn.Module):
         logger.info("min output length: " + str(minlen))
         # main loop of prefix search
 
-        if text is not None:
+        # when use "input text one by one" (judge continue or end)
+        if text is not None and unit == "word":
 
-            x = torch.full_like(x, 0) # No acoustic feature
             text_list = text.tolist()
             text_list = self.text_word_devide(text_list, converter)
             cont_counter, cont_correct, end_counter, end_correct = 0, 0, 0, 0
@@ -611,16 +615,99 @@ class BeamSearch(torch.nn.Module):
             logger.info(f"cont_correct : {cont_correct}")
             logger.info(f"end_counter : {end_counter}")
             logger.info(f"end_correct : {end_correct}")
+
+        elif text is not None and unit == "token":
+
+            token_list = text.tolist()
+            cont_counter, cont_correct, end_counter, end_correct = 0, 0, 0, 0
+    
+            for num_of_token in range(1, len(token_list) + 1):
+                initial_hyp = list(converter.tokenizer.sot_sequence_including_notimestamps)
+                for add_text_num in range(num_of_token):
+                    initial_hyp += [token_list[add_text_num]]
+                self.set_hyp_primer(initial_hyp)
+                running_hyps = self.init_hyp(x if pre_x is None else pre_x) # batch_beam
+                first_length = len(running_hyps.yseq[0])
+                ended_hyps = []
+                ended_hyps_tmp = []
+
+                hyp_primer_length = len(running_hyps.yseq[0])
+
+                # text = text.to('cuda:0')
+                # new = torch.cat((running_hyps.yseq[0],text), dim=0)
+                # new = torch.unsqueeze(new,0)
+
+                # ex.) running_hyps = BatchHypothesis(yseq=tensor([[50258, 50259, 50359, 50363]], device='cuda:0'), score=tensor([0.]), length=tensor([4]), scores={'decoder': tensor([0.]), 'length_bonus': tensor([0.])}, states={'decoder': [None], 'length_bonus': [None]}, hs=[])
+                # このforループで一つずつ推定結果を出力している。
+                for i in range(maxlen):
+                    logger.debug("position " + str(i))
+                    # /mnt/kiso-qnap2/fujiwara/B4/espnet/espnet/nets/batch_beam_search.py へと飛ぶ。(継承先)
+                    # 次のトークンの生起確率を計算 ＆ 上位をbestに格納
+                    best = self.search(running_hyps, x, pre_x=pre_x)
+                    
+                    # post process of one iteration
+                    # beam_searchの枝の終了判定 (最後が<eos>なら終了)
+                    
+                    running_hyps = self.post_process(
+                        i, maxlen, minlen, maxlenratio, best, ended_hyps
+                    )
+                        
+                    # end detection
+                    if maxlenratio == 0.0 and end_detect([h.asdict() for h in ended_hyps], i):
+                        logger.info(f"end detected at {i}")
+                        break
+                    if len(running_hyps) == 0:
+                        # logger.info("no hypothesis. Finish decoding.")
+                        break
+                    else:
+                        logger.debug(f"remained hypotheses: {len(running_hyps)}")
+                
+
+                if self.normalize_length:
+                    # Note (Jinchuan): -1 since hyp starts with <sos> and
+                    # initially has score of 0.0
+                    nbest_hyps = sorted(
+                        ended_hyps, key=lambda x: x.score / (len(x.yseq) - 1), reverse=True
+                    )
+                else:
+                    nbest_hyps = sorted(ended_hyps, key=lambda x: x.score, reverse=True)
+
+                if len(nbest_hyps[0].yseq) - first_length == maxlen + 1:
+                    logger.warning(
+                        "best hypo length: {} == max output length: {}".format(
+                            nbest_hyps[0].yseq, maxlen
+                        )
+                    )
+                    logger.warning(
+                        "decoding may be stopped by the max output length limitation, "
+                        + "please consider to increase the maxlenratio."
+                    )
+                else:
+                    if num_of_token < len(token_list) - 1:
+                        cont_counter += 1
+                        if hyp_primer_length + 2 < len(nbest_hyps[0].yseq):
+                            logger.info(f"cont input length : {num_of_token} , continue : Correct")
+                            cont_correct += 1
+                        else:
+                            logger.info(f"cont input length : {num_of_token} , continue : Failed")
+                    else:
+                        end_counter += 1
+                        if hyp_primer_length + 2 >= len(nbest_hyps[0].yseq):
+                            logger.info(f"end input length : {num_of_token} , end : Correct")
+                            end_correct += 1
+                        else:
+                            logger.info(f"end input length : {num_of_token} , end : Failed")
+
+            logger.info(f"cont_counter : {cont_counter}")
+            logger.info(f"cont_correct : {cont_correct}")
+            logger.info(f"end_counter : {end_counter}")
+            logger.info(f"end_correct : {end_correct}")
         
         else:
 
             running_hyps = self.init_hyp(x if pre_x is None else pre_x) # batch_beam
             ended_hyps = []
             ended_hyps_tmp = []
-
-            if minwords:
-                pre_tokens = converter.ids2tokens(running_hyps.yseq[0])
-                prewords = sum(1 for token in pre_tokens if token[0] == 'Ġ')
 
             less_than_primtoken = 0
             hyp_primer_length = len(running_hyps.yseq[0])
@@ -637,14 +724,9 @@ class BeamSearch(torch.nn.Module):
                 
                 # post process of one iteration
                 # beam_searchの枝の終了判定 (最後が<eos>なら終了)
-                if not(minwords):
-                    running_hyps = self.post_process(
-                        i, maxlen, minlen, maxlenratio, best, ended_hyps
-                    )
-                else:
-                    running_hyps = self.post_process(
-                        i, maxlen, minlen, maxlenratio, best, ended_hyps, minwords, prewords, converter,
-                    )
+                running_hyps = self.post_process(
+                    i, maxlen, minlen, maxlenratio, best, ended_hyps
+                )
                     
                 # end detection
                 if maxlenratio == 0.0 and end_detect([h.asdict() for h in ended_hyps], i):
@@ -673,19 +755,20 @@ class BeamSearch(torch.nn.Module):
                 )
             # elif primtokenmask:
             #     nbest_hyps = sorted(ended_hyps_tmp, key=lambda x: x.score, reverse=True)
-            elif primtextmask:
-                nbest_hyps = sorted(ended_hyps, key=lambda x: x.score, reverse=True)
-                ended_hyps_first = self.select_end_in_nwords([nbest_hyps[0]], primtextmask, hyp_primer_length, converter)
-                if len(ended_hyps_first) != 0:
-                    nbest_hyps = self.select_end_in_nwords(nbest_hyps, primtextmask, hyp_primer_length, converter)
+            # elif primtextmask:
+            #     nbest_hyps = sorted(ended_hyps, key=lambda x: x.score, reverse=True)
+            #     ended_hyps_first = self.select_end_in_nwords([nbest_hyps[0]], primtextmask, hyp_primer_length, converter)
+            #     if len(ended_hyps_first) != 0:
+            #         nbest_hyps = self.select_end_in_nwords(nbest_hyps, primtextmask, hyp_primer_length, converter)
             else:
                 nbest_hyps = sorted(ended_hyps, key=lambda x: x.score, reverse=True)
             
             if len(nbest_hyps) == 0:
                 nbest_hyps = sorted(ended_hyps, key=lambda x: x.score, reverse=True)
 
-            while len(nbest_hyps) < 5:
-                nbest_hyps += [nbest_hyps[-1]]
+            # when use "primtextmask end_in_nwords"
+            # while len(nbest_hyps) < 5:
+            #     nbest_hyps += [nbest_hyps[-1]]
 
             # check the number of hypotheses reaching to eos
             if len(nbest_hyps) == 0:
@@ -822,7 +905,6 @@ def beam_search(
     token_list: List[str] = None,
     maxlenratio: float = 0.0,
     minlenratio: float = 0.0,
-    minwords: int = 0,
     converter = None,
     text = None,
     pre_beam_ratio: float = 1.5,
@@ -864,5 +946,5 @@ def beam_search(
         sos=sos,
         eos=eos,
         token_list=token_list,
-    ).forward(x=x, maxlenratio=maxlenratio, minlenratio=minlenratio, minwords=minwords, converter=converter, text=text)
+    ).forward(x=x, maxlenratio=maxlenratio, minlenratio=minlenratio, converter=converter, text=text)
     return [h.asdict() for h in ret]
